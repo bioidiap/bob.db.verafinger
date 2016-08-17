@@ -6,6 +6,7 @@
 """
 
 import os
+import pkg_resources
 
 import bob.io.base
 import bob.io.image
@@ -13,22 +14,15 @@ import bob.db.base
 
 import numpy
 
-from sqlalchemy import Table, Column, Integer, String, ForeignKey, or_, and_, not_
+from sqlalchemy import Table, Column, Integer, String, ForeignKey
+from sqlalchemy import or_, and_, not_
+
 from bob.db.base.sqlalchemy_migration import Enum, relationship
 from sqlalchemy.orm import backref
 from sqlalchemy.ext.declarative import declarative_base
 
 
 Base = declarative_base()
-
-
-protocolPurpose_file_association = Table('protocolPurpose_file_association', Base.metadata,
-  Column('protocolPurpose_id', Integer, ForeignKey('protocolPurpose.id')),
-  Column('file_id', Integer, ForeignKey('file.id')))
-
-protocol_model_association = Table('protocol_model_association', Base.metadata,
-  Column('protocol_id', Integer, ForeignKey('protocol.id')),
-  Column('model_id', Integer, ForeignKey('model.id')))
 
 
 class Client(Base):
@@ -44,6 +38,12 @@ class Client(Base):
   age = Column(Integer)
 
 
+  def __init__(self, id, gender, age):
+    self.id = id
+    self.gender = gender
+    self.age = age
+
+
   def gender_display(self):
     """Returns a representation of the client gender"""
 
@@ -51,8 +51,9 @@ class Client(Base):
 
 
   def __repr__(self):
-    return "Client(%d) <%s>, %d years old" % \
-        (self.id, self.gender_display, self.age)
+    return "Client(%03d) <%s>, %d years old" % \
+        (self.id, self.gender_display(), self.age)
+
 
 
 class Finger(Base):
@@ -63,78 +64,58 @@ class Finger(Base):
 
   __tablename__ = 'finger'
 
-  # Key identifier for the finger
-  id = Column(String(5), primary_key=True)
+  id = Column(Integer, primary_key=True)
 
-  # Key identifier of the client associated with this finger
   client_id = Column(Integer, ForeignKey('client.id'))
   client = relationship("Client", backref=backref("fingers", order_by=id))
 
-  def __init__(self, id, client):
-    self.id = id
+  side_choices = ('L', 'R')
+  side = Column(Enum(*side_choices))
+
+
+  def __init__(self, client, side):
     self.client = client
+    self.side = side
+
+
+  def side_display(self):
+    """Returns a representation of the finger side"""
+
+    return 'left' if self.gender == 'L' else 'right'
+
 
   def __repr__(self):
-    return "Client(%s)" % (self.id,)
-
-
-class Model(Base):
-  """This class defines possible enrollment models"""
-
-  __tablename__ = 'model'
-
-  # Key identifier for the client
-  id = Column(Integer, primary_key=True)
-
-  # Name of the protocol associated with this object
-  name = Column(String(20))
-
-  # Key identifier of the client associated with this model
-  client_id = Column(String(20), ForeignKey('client.id')) # for SQL
-  client = relationship("Client", backref=backref("models", order_by=id))
-
-  # Key identifier of the enrollment associated with this model
-  file_id = Column(Integer, ForeignKey('file.id')) # for SQL
-  file = relationship("File", backref=backref("models", order_by=id))
-
-  def __init__(self, name, client_id, file_id):
-    self.name = name
-    self.client_id = client_id
-    self.file_id = file_id
-
-  def __repr__(self):
-    return "Model(%s)" % (self.name)
+    return "Finger(%03d-%s)" % (self.client.id, self.side_display())
 
 
 class File(bob.db.base.File):
+  """Unique files in the database, referred by a string
+
+  Files have the format ``001-M/001_L_1`` (i.e.
+  <client>-<gender>/<client>_<side>_<session>)
+  """
 
   __tablename__ = 'file'
 
-  # Key identifier for the file
   id = Column(Integer, primary_key=True)
 
-  # Key identifier of the client associated with this file
-  client_id = Column(String(20), ForeignKey('client.id')) # for SQL
-  client = relationship("Client", backref=backref("files", order_by=id))
+  finger_id = Column(Integer, ForeignKey('finger.id'))
+  finger = relationship("Finger", backref=backref("files", order_by=id))
 
-  # Unique path to this file inside the database
-  path = Column(String(100), unique=True)
-
-  # Identifier of the finger id associated with this file
-  finger_choices = ('L', 'R')
-  finger = Column(Enum(*finger_choices))
-
-  # Identifier of the session
   session_choices = (1, 2)
   session = Column(Enum(*session_choices))
 
 
-  def __init__(self, client, path, sgroup, finger_id,  session_id, stype):
-    # call base class constructor
-    self.sgroup = sgroup
-    self.finger_id = finger_id
-    self.session_id = session_id
-    self.stype = stype
+  def __init__(self, finger, session):
+    self.finger = finger
+    self.session = session
+
+
+  @property
+  def path(self):
+    return '%03d-%s/%03d_%s_%d' % (self.finger.client.id,
+        self.finger.client.gender, self.finger.client.id, self.finger.side,
+        self.session)
 
 
   def load(self, directory=None, extension='.png'):
@@ -158,20 +139,12 @@ class File(bob.db.base.File):
     return bob.io.base.load(self.make_path(directory, '.png'))
 
 
-  def annotations(self, directory):
-    """Loads annotations taking into consideration a base annotation folder
+  def roi(self):
+    """Loads region-of-interest annotations for a particular image
 
     The returned points (see return value below) correspond to a polygon in the
-    2D space delimiting the finger. It is up to you to generate a mask out of
-    these annotations.
-
-
-    Parameters:
-
-      directory (str): The path to the root of the annotation installation.
-        This is the path leading to files named ``DDD-G`` where ``D``'s
-        correspond to digits and ``G`` to the client gender. For example
-        ``032-M``.
+    2D space delimiting the finger image. It is up to you to generate a mask
+    out of these annotations.
 
 
     Returns:
@@ -183,7 +156,13 @@ class File(bob.db.base.File):
 
     """
 
+    # calculate where the annotations for this file are
+    directory = pkg_resources.resource_filename(__name__,
+        os.path.join('data', 'annotations', 'roi'))
+
+    # loads it w/o mercy ;-)
     return numpy.loadtxt(self.make_path(directory, '.txt'), dtype='uint8')
+
 
 
 class Protocol(Base):
@@ -191,47 +170,51 @@ class Protocol(Base):
 
   __tablename__ = 'protocol'
 
-  # Unique identifier for this protocol object
   id = Column(Integer, primary_key=True)
-  # Name of the protocol associated with this object
-  name = Column(String(20), unique=True)
 
-  # For Python: A direct link to the Model objects associated with this Protcol
-  models = relationship("Model", secondary=protocol_model_association, backref=backref("protocols", order_by=id))
+  # Name of the protocol
+  name = Column(String(10), unique=True)
+
 
   def __init__(self, name):
     self.name = name
 
   def __repr__(self):
-    return "Protocol('%s')" % (self.name,)
+    return "Protocol('%s')" % self.name
 
 
-class ProtocolPurpose(Base):
-  """VERA protocol purposes"""
 
-  __tablename__ = 'protocolPurpose'
+subset_file_association = Table('subset_file_association', Base.metadata,
+  Column('subset_id', Integer, ForeignKey('subset.id')),
+  Column('file_id', Integer, ForeignKey('file.id')))
 
-  # Unique identifier for this protocol purpose object
+
+class Subset(Base):
+  """VERA protocol subsets"""
+
+  __tablename__ = 'subset'
+
   id = Column(Integer, primary_key=True)
-  # Id of the protocol associated with this protocol purpose object
-  protocol_id = Column(Integer, ForeignKey('protocol.id')) # for SQL
-  # Group associated with this protocol purpose object
-  group_choices = ('world', 'dev')
+
+  protocol_id = Column(Integer, ForeignKey('protocol.id'))
+  protocol = relationship("Protocol", backref=backref("subsets"))
+
+  group_choices = ('train', 'dev')
   sgroup = Column(Enum(*group_choices))
-  # Purpose associated with this protocol purpose object
+
   purpose_choices = ('train', 'enroll', 'probe')
   purpose = Column(Enum(*purpose_choices))
 
-  # For Python: A direct link to the Protocol object that this ProtocolPurpose belongs to
-  protocol = relationship("Protocol", backref=backref("purposes", order_by=id))
-  # For Python: A direct link to the File objects associated with this ProtcolPurpose
-  files = relationship("File", secondary=protocolPurpose_file_association, backref=backref("protocolPurposes", order_by=id))
+  files = relationship("File",
+      secondary=subset_file_association,
+      backref=backref("subsets"))
 
-  def __init__(self, protocol_id, sgroup, purpose):
-    self.protocol_id = protocol_id
-    self.sgroup = sgroup
+
+  def __init__(self, protocol, group, purpose):
+    self.protocol = protocol
+    self.group = group
     self.purpose = purpose
 
-  def __repr__(self):
-    return "ProtocolPurpose('%s', '%s', '%s')" % (self.protocol.name, self.sgroup, self.purpose)
 
+  def __repr__(self):
+    return "Subset(%s, %s, %s)" % (self.protocol, self.group, self.purpose)

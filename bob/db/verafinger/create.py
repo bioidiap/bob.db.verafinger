@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 # vim: set fileencoding=utf-8 :
 
-"""This script creates the VERA database in a single pass.
+"""This script creates the VERA fingervein SQL database in a single pass.
 """
 
 import os
-
 from .models import *
 
 def nodot(item):
@@ -13,8 +12,11 @@ def nodot(item):
   return item[0] != '.'
 
 
-def add_files(session, imagedir, verbose):
-  """Add files (and clients) to the VERA database."""
+def add_files(session, basedir, verbose):
+  """Add files (and clients) to the VERA fingervein database."""
+
+  def add_file(basedir, relpath):
+    """Parses a single filename and adds all info about it to the database"""
 
 
   def add_file(subdir, filename, model_dict, file_dict):
