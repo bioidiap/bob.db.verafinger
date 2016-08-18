@@ -1,296 +1,228 @@
 #!/usr/bin/env python
 # vim: set fileencoding=utf-8 :
-# Pedro Tome <Pedro.Tome@idiap.ch>
-#
-# Copyright (C) 2014-2015 Idiap Research Institute, Martigny, Switzerland
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, version 3 of the License.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-"""This module provides the Dataset interface allowing the user to query the
-VERA database in the most obvious ways.
-"""
+"""Dataset interface allowing the user to query the VERA database"""
 
-import os
 import six
-from bob.db.base import utils
 from .models import *
 from .driver import Interface
+from sqlalchemy import and_, not_
 
-import bob.db.verification.utils
+import bob.db.base
 
 SQLITE_FILE = Interface().files()[0]
 
-class Database(bob.db.verification.utils.SQLiteDatabase):
+
+class Database(bob.db.base.SQLiteDatabase):
   """The dataset class opens and maintains a connection opened to the Database.
 
   It provides many different ways to probe for the characteristics of the data
   and for the data itself inside the database.
   """
 
-  def __init__(self, original_directory = None, original_extension = None):
-    # call base class constructors
-    bob.db.verification.utils.SQLiteDatabase.__init__(self, SQLITE_FILE, File,
-      original_directory=original_directory, 
-      original_extension=original_extension
-    )
+  def __init__(self):
+    super(Database, self).__init__(SQLITE_FILE, File)
 
-  def groups(self, protocol=None):
-    """Returns the names of all registered groups"""
-
-    return File.group_choices
-
-  def clients(self, protocol=None, groups=None):
-    """Returns a set of clients for the specific query by the user.
-
-    Keyword Parameters:
-
-    protocol
-      One of the VERA protocols ('1vsAll','B','NOM','Attack1',Attack2').
-
-    groups
-      ignored (The clients belong both to 'world' and 'dev')
-
-    Returns: A list containing all the clients which have the given properties.
-    """
-
-    protocols = self.check_parameters_for_validity(protocol, "protocol", self.protocol_names())
-
-    retval = []
-    # List of the clients
-    q = self.query(File).join((ProtocolPurpose, File.protocolPurposes)).join(Protocol).\
-            filter(Protocol.name.in_(protocols))
-    q = list(q.order_by(File.client_id))
-    client_ids = [k.client_id for k in q]
-    q = self.query(Client)
-    q = q.order_by(Client.id)
-    retval = list([k for k in q if k.id in client_ids])
-
-    return retval
-
-  def client_ids(self, protocol=None, groups=None):
-    """Returns a set of client ids for the specific query by the user.
-
-    Keyword Parameters:
-
-    protocol
-      One of the VERA protocols ('1vsAll','B','NOM','NOM50','SpoofingAttack',SpoofingAttack50').
-
-    groups
-      ignored (The clients belong both to 'world' and 'dev')
-
-    Returns: A list containing all the clients which have the given properties.
-    """
-
-    return [client.id for client in self.clients(protocol, groups)]
-
-  def models(self, protocol=None, groups=None):
-    """Returns a set of models for the specific query by the user.
-
-    Keyword Parameters:
-
-    protocol
-      One of the VERA protocols ('1vsAll','B','NOM','NOM50','SpoofingAttack',SpoofingAttack50').
-
-    groups
-      Returns models from the 'dev' if None or 'dev' are given.
-      Nothing otherwise
-
-    Returns: A list containing all the models which have the given properties.
-    """
-
-    protocols = self.check_parameters_for_validity(protocol, "protocol", self.protocol_names())
-    groups = self.check_parameters_for_validity(groups, "group", self.groups())
-
-    retval = []
-    if 'dev' in groups:
-      # List of the clients
-      q = self.query(Model).join((Protocol, Model.protocols)).filter(Protocol.name.in_(protocols))
-      q = q.order_by(Model.name)
-      retval += list(q)
-
-    return retval
-
-  def model_ids(self, protocol=None, groups=None):
-    """Returns a set of models ids for the specific query by the user.
-
-    Keyword Parameters:
-
-    protocol
-      One of the VERA protocols ('1vsAll','B','NOM','NOM50','SpoofingAttack',SpoofingAttack50').
-
-    groups
-      The groups to which the subjects attached to the models belong ('dev')
-
-    Returns: A list containing all the models ids which have the given properties.
-    """
-
-    return [model.name for model in self.models(protocol, groups)]
-
-  def has_client_id(self, id):
-    """Returns True if we have a client with a certain integer identifier"""
-
-    return self.query(Client).filter(Client.id==id).count() != 0
-
-  def client(self, id):
-    """Returns the client object in the database given a certain id. Raises
-    an error if that does not exist."""
-
-    return self.query(Client).filter(Client.id==id).one()
-
-  def get_client_id_from_model_id(self, model_id):
-    """Returns the client_id attached to the given model_id
-
-    Keyword Parameters:
-
-    model_id
-      The model_id to consider
-
-    Returns: The client_id attached to the given model_id
-    """
- 
-    return self.query(Model).filter(Model.name==model_id).one().client_id
-
-  def objects(self, protocol=None, purposes=None, model_ids=None, groups=None,
-      classes=None, finger_ids=None, session_ids=None):
-    """Returns a set of Files for the specific query by the user.
-
-    Keyword Parameters:
-
-    protocol
-      One of the VERA protocols ('1vsAll','B','NOM','NOM50','SpoofingAttack',SpoofingAttack50').
-
-    purposes
-      The purposes required to be retrieved ('enroll', 'probe', 'train') or a tuple
-      with several of them. If 'None' is given (this is the default), it is
-      considered the same as a tuple with all possible values. This field is
-      ignored for the data from the "world" group.
-
-    model_ids
-      Only retrieves the files for the provided list of model ids.
-      If 'None' is given (this is the default), no filter over
-      the model_ids is performed.
-
-    groups
-      One of the groups ('dev', 'world') or a tuple with several of them.
-      If 'None' is given (this is the default), it is considered the same as a
-      tuple with all possible values.
-
-    classes
-      The classes (types of accesses) to be retrieved ('client', 'impostor')
-      or a tuple with several of them. If 'None' is given (this is the
-      default), it is considered the same as a tuple with all possible values.
-
-    finger_ids
-      Only retrieves the files for the provided list of finger ids.
-      If 'None' is given (this is the default), no filter over
-      the finger_ids is performed.
-
-    session_ids
-      Only retrieves the files for the provided list of session ids.
-      If 'None' is given (this is the default), no filter over
-      the session_ids is performed.
-
-    Returns: A list of files which have the given properties.
-    """
-
-    protocols = self.check_parameters_for_validity(protocol, "protocol", self.protocol_names())
-    purposes = self.check_parameters_for_validity(purposes, "purpose", self.purposes())
-    groups = self.check_parameters_for_validity(groups, "group", self.groups())
-    classes = self.check_parameters_for_validity(classes, "class", ('client', 'impostor'))
-
-    from six import string_types
-    if model_ids is None:
-      model_ids = ()
-    elif isinstance(model_ids, string_types):
-      model_ids = (model_ids,)
-    import collections
-    if finger_ids is None:
-      finger_ids = ()
-    elif not isinstance(finger_ids, collections.Iterable):
-      finger_ids = (finger_ids,)
-    if session_ids is None:
-      session_ids = ()
-    elif not isinstance(session_ids, collections.Iterable):
-      session_ids = (session_ids,)
-
-    # Now query the database
-    retval = []
-    if 'world' in groups:
-      q = self.query(File).join((ProtocolPurpose, File.protocolPurposes)).join(Protocol).\
-            filter(and_(Protocol.name.in_(protocols), ProtocolPurpose.sgroup == 'world'))
-      #filter(File.sgroup == 'world')
-      if finger_ids:  q = q.filter(File.finger_id.in_(finger_ids))
-      if session_ids: q = q.filter(File.session_id.in_(session_ids))
-      q = q.order_by(File.client_id, File.finger_id, File.session_id)
-      retval += list(q)
-
-    if 'dev' in groups:
-      if 'enroll' in purposes:
-        q = self.query(File).join(Client).join((ProtocolPurpose, File.protocolPurposes)).join(Protocol).\
-              filter(and_(Protocol.name.in_(protocols), ProtocolPurpose.sgroup == 'dev', ProtocolPurpose.purpose == 'enroll'))
-        if model_ids:   q = q.join((Model, File.models)).filter(Model.name.in_(model_ids))
-        if finger_ids:  q = q.filter(File.finger_id.in_(finger_ids))
-        if session_ids: q = q.filter(File.session_id.in_(session_ids))
-        q = q.order_by(File.client_id, File.finger_id, File.session_id)
-        retval += list(q)
-        
-      if 'probe' in purposes:
-        if 'client' in classes:
-          q = self.query(File).join(Client).join((ProtocolPurpose, File.protocolPurposes)).join(Protocol).\
-                filter(and_(Protocol.name.in_(protocols), ProtocolPurpose.sgroup == 'dev', ProtocolPurpose.purpose == 'probe'))
-          if len(model_ids) != 0: # Optimization using prior knowledge on the protocol to avoid long query in this case
-            q = q.join((Model, Protocol.models)).filter(and_(File.client_id == Model.client_id, File.id != Model.file_id))
-          if model_ids:   q = q.filter(Model.name.in_(model_ids))
-          if finger_ids:  q = q.filter(File.finger_id.in_(finger_ids))
-          if session_ids: q = q.filter(File.session_id.in_(session_ids))
-          q = q.order_by(File.client_id, File.finger_id, File.session_id)
-          retval += list(q)
-       
-        if 'impostor' in classes:
-          q = self.query(File).join(Client).join((ProtocolPurpose, File.protocolPurposes)).join(Protocol).\
-                filter(and_(Protocol.name.in_(protocols), ProtocolPurpose.sgroup == 'dev', ProtocolPurpose.purpose == 'probe'))
-          if len(model_ids) != 0: # Optimization using prior knowledge on the protocol to avoid long query in this case
-            q = q.join((Model, Protocol.models)).filter(File.client_id != Model.client_id)
-          if model_ids:   q = q.filter(Model.name.in_(model_ids))
-          if finger_ids:  q = q.filter(File.finger_id.in_(finger_ids))
-          if session_ids: q = q.filter(File.session_id.in_(session_ids))
-          q = q.order_by(File.client_id, File.finger_id, File.session_id)
-          retval += list(q)
-
-    return list(set(retval)) # To remove duplicates
 
   def protocol_names(self):
-    """Returns all registered protocol names"""
+    """Returns a list of all supported protocols"""
 
-    l = self.protocols()
-    retval = [str(k.name) for k in l]
-    return retval
+    return tuple([k.name for k in self.query(Protocol).order_by(Protocol.name)])
 
-  def protocols(self):
-    """Returns all registered protocols"""
-
-    return list(self.query(Protocol))
-
-  def has_protocol(self, name):
-    """Tells if a certain protocol is available"""
-
-    return self.query(Protocol).filter(Protocol.name==name).count() != 0
-
-  def protocol(self, name):
-    """Returns the protocol object in the database given a certain name. Raises
-    an error if that does not exist."""
-
-    return self.query(Protocol).filter(Protocol.name==name).one()
 
   def purposes(self):
-    return ProtocolPurpose.purpose_choices
+    """Returns a list of all supported purposes"""
+
+    return Subset.purpose_choices
+
+
+  def groups(self):
+    """Returns a list of all supported groups"""
+
+    return Subset.group_choices
+
+
+  def genders(self):
+    """Returns a list of all supported gender values"""
+
+    return Client.gender_choices
+
+
+  def sides(self):
+    """Returns a list of all supported side values"""
+
+    return Finger.side_choices
+
+
+  def sessions(self):
+    """Returns a list of all supported session values"""
+
+    return File.session_choices
+
+
+  def model_ids(self, protocol=None, groups=None):
+    """Returns a set of models for a given protocol/group
+
+    Parameters:
+
+      protocol (str, list, Optional): One or more of the supported protocols.
+        If not set, returns data from all protocols
+
+      groups (str, list, Optional): One or more of the supported groups. If not
+        set, returns data from all groups. Notice this parameter should either
+        not set or set to ``dev``. Otherwise, this method will return an empty
+        list given we don't have a test set, only a development set.
+
+
+    Returns:
+
+      list: A list of string corresponding model identifiers with the specified
+        filtering criteria
+
+    """
+
+    protocols = None
+    if protocol:
+      valid_protocols = self.protocol_names()
+      protocols = self.check_parameters_for_validity(protocol, "protocol",
+          valid_protocols)
+
+    if groups:
+      valid_groups = self.groups()
+      groups = self.check_parameters_for_validity(groups, "group",
+          valid_groups)
+
+    retval = self.query(File)
+
+    joins = []
+    filters = []
+
+    subquery = self.query(Subset)
+    subfilters = []
+
+    if protocols:
+      subquery = subquery.join(Protocol)
+      subfilters.append(Protocol.name.in_(protocols))
+
+    if groups: subfilters.append(Subset.group.in_(groups))
+
+    subfilters.append(Subset.purpose == 'enroll')
+
+    subsets = subquery.filter(*subfilters)
+    filters.append(File.subsets.any(Subset.id.in_([k.id for k in subsets])))
+
+    retval = retval.join(*joins).filter(*filters).distinct().order_by('id')
+
+    return sorted(set([k.model_id for k in retval.distinct()]))
+
+
+  def objects(self, protocol=None, groups=None, purposes=None,
+      model_ids=None, genders=None, sides=None, sessions=None):
+    """Returns objects filtered by criteria
+
+
+    Parameters:
+
+      protocol (str, list, Optional): One or more of the supported protocols.
+        If not set, returns data from all protocols
+
+      groups (str, list, Optional): One or more of the supported groups. If not
+        set, returns data from all groups
+
+      purposes (str, list, Optional): One or more of the supported purposes. If
+        not set, returns data for all purposes
+
+      model_ids (str, list, Optional): If set, limit output using the provided
+        model identifiers
+
+      genders (str, list, Optional): If set, limit output using the provided
+        gender identifiers
+
+      sides (str, list, Optional): If set, limit output using the provided
+        side identifier
+
+      sessions (str, list, Optional): If set, limit output using the provided
+        session identifiers
+
+
+    Returns:
+
+      list: A list of :py:class:`File` objects corresponding to the filtering
+        criteria.
+
+    """
+
+    protocols = None
+    if protocol:
+      valid_protocols = self.protocol_names()
+      protocols = self.check_parameters_for_validity(protocol, "protocol",
+          valid_protocols)
+
+    if groups:
+      valid_groups = self.groups()
+      groups = self.check_parameters_for_validity(groups, "group", valid_groups)
+
+    if purposes:
+      valid_purposes = self.purposes()
+      purposes = self.check_parameters_for_validity(purposes, "purpose",
+          valid_purposes)
+
+    if model_ids:
+      valid_model_ids = self.model_ids(protocol, groups)
+      model_ids = self.check_parameters_for_validity(model_ids, "model_ids",
+          valid_model_ids)
+
+    if genders:
+      valid_genders = self.genders()
+      genders = self.check_parameters_for_validity(genders, "genders",
+          valid_genders)
+
+    if sides:
+      valid_sides = self.sides()
+      sides = self.check_parameters_for_validity(sides, "sides", valid_sides)
+
+    if sessions:
+      valid_sessions = self.sessions()
+      sessions = self.check_parameters_for_validity(sessions, "sessions",
+          valid_sessions)
+
+    retval = self.query(File)
+
+    joins = []
+    filters = []
+
+    if protocols or groups or purposes:
+
+      subquery = self.query(Subset)
+      subfilters = []
+
+      if protocols:
+        subquery = subquery.join(Protocol)
+        subfilters.append(Protocol.name.in_(protocols))
+
+      if groups: subfilters.append(Subset.group.in_(groups))
+      if purposes: subfilters.append(Subset.purpose.in_(purposes))
+
+      subsets = subquery.filter(*subfilters)
+
+      filters.append(File.subsets.any(Subset.id.in_([k.id for k in subsets])))
+
+    if genders or sides:
+      joins.append(Finger)
+
+      if genders:
+        fingers = self.query(Finger).join(Client).filter(Client.gender.in_(genders))
+        filters.append(Finger.id.in_([k.id for k in fingers]))
+
+      if sides:
+        filters.append(Finger.side.in_(sides))
+
+    if sessions:
+      filters.append(File.session.in_(sessions))
+
+    retval = retval.join(*joins).filter(*filters).distinct().order_by('id')
+
+    if model_ids:
+      return [k for k in retval if k.model_id in model_ids]
+
+    return list(retval)

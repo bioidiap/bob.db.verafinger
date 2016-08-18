@@ -81,14 +81,14 @@ class Finger(Base):
   def side_display(self):
     """Returns a representation of the finger side"""
 
-    return 'left' if self.gender == 'L' else 'right'
+    return 'left' if self.side == 'L' else 'right'
 
 
   def __repr__(self):
     return "Finger(%03d-%s)" % (self.client.id, self.side_display())
 
 
-class File(bob.db.base.File):
+class File(Base, bob.db.base.File):
   """Unique files in the database, referred by a string
 
   Files have the format ``001-M/001_L_1`` (i.e.
@@ -102,7 +102,7 @@ class File(bob.db.base.File):
   finger_id = Column(Integer, ForeignKey('finger.id'))
   finger = relationship("Finger", backref=backref("files", order_by=id))
 
-  session_choices = (1, 2)
+  session_choices = ('1', '2')
   session = Column(Enum(*session_choices))
 
 
@@ -112,8 +112,16 @@ class File(bob.db.base.File):
 
 
   @property
+  def model_id(self):
+    '''The model name for this file'''
+
+    return '%03d_%s_%s' % (self.finger.client.id, self.finger.side,
+        self.session)
+
+
+  @property
   def path(self):
-    return '%03d-%s/%03d_%s_%d' % (self.finger.client.id,
+    return '%03d-%s/%03d_%s_%s' % (self.finger.client.id,
         self.finger.client.gender, self.finger.client.id, self.finger.side,
         self.session)
 
@@ -161,7 +169,7 @@ class File(bob.db.base.File):
         os.path.join('data', 'annotations', 'roi'))
 
     # loads it w/o mercy ;-)
-    return numpy.loadtxt(self.make_path(directory, '.txt'), dtype='uint8')
+    return numpy.loadtxt(self.make_path(directory, '.txt'), dtype='uint16')
 
 
 
@@ -183,10 +191,9 @@ class Protocol(Base):
     return "Protocol('%s')" % self.name
 
 
-
 subset_file_association = Table('subset_file_association', Base.metadata,
-  Column('subset_id', Integer, ForeignKey('subset.id')),
-  Column('file_id', Integer, ForeignKey('file.id')))
+  Column('subset_id', Integer, ForeignKey('file.id')),
+  Column('file_id', Integer, ForeignKey('subset.id')))
 
 
 class Subset(Base):
@@ -200,7 +207,7 @@ class Subset(Base):
   protocol = relationship("Protocol", backref=backref("subsets"))
 
   group_choices = ('train', 'dev')
-  sgroup = Column(Enum(*group_choices))
+  group = Column(Enum(*group_choices))
 
   purpose_choices = ('train', 'enroll', 'probe')
   purpose = Column(Enum(*purpose_choices))

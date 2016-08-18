@@ -5,192 +5,130 @@
 """
 
 import os
+import re
+import csv
+import pkg_resources
+
 from .models import *
 
-def nodot(item):
-  """Can be used to ignore hidden files, starting with the . character."""
-  return item[0] != '.'
+
+def add_clients(session, verbose):
+  """Create client entries at the database"""
+
+  metadata = pkg_resources.resource_filename(__name__, os.path.join('data',
+    'metadata.csv'))
+  with open(metadata, 'rt') as f:
+    header = None
+    for row in csv.reader(f):
+      if header is None:
+        header = row
+        continue
+      id_, gender, age = row
+      id_ = int(id_)
+      age = int(age)
+
+      # create client
+      client = Client(id_, gender, age)
+      session.add(client)
+
+      if verbose:
+        print("Created %s" % client)
 
 
-def add_files(session, basedir, verbose):
-  """Add files (and clients) to the VERA fingervein database."""
+def add_fingers(session, verbose):
+  """Create finger entries at the database"""
 
-  def add_file(basedir, relpath):
-    """Parses a single filename and adds all info about it to the database"""
+  for client in session.query(Client):
+    for side in Finger.side_choices:
+      finger = Finger(client, side)
+      session.add(finger)
 
-
-  def add_file(subdir, filename, model_dict, file_dict):
-    """Parses a single filename and add it to the list.
-
-    Also adds a client entry if not already in the database.
-    """
-
-    subclient_id, side, session_id = \
-        os.path.splitext(os.path.basename(filename))[0].split('_')
-
-    subclient_id = int(subclient_id)
-    side = 'left' if side == 'L' else 'right'
-    session_id = int(session_id)
-
-    # each finger is considered as a separate client
-    client_id = "%d_%s" % (subclient_id, side)
-
-    if not (client_id in client_dict):
-      c = Client(client_id, subclient_id)
-      session.add(c)
-      session.flush()
-      session.refresh(c)
-      client_dict[client_id] = True
-
-    session_id = int(v[2])
-    base_path = os.path.join(typedir, subdir,
-        os.path.basename(filename).split('.')[0])
-    sgroup = 'dev'
-
-    if verbose > 1:
-      print("  Adding file '%s'..." %(base_path, ))
-
-    cfile = File(client_id, base_path, sgroup, finger_id, session_id)
-    session.add(cfile)
-    session.flush()
-    session.refresh(cfile)
-    file_dict[sgroup][cfile.id] = cfile
-
-    if sgroup == 'dev':
-      model_id = "%d_%s_%d" % (subclient_id, finger_id, session_id)
-
-      if verbose > 1:
-        print("  Adding Model '%s'..." %(model_id, ))
-
-      model = Model(model_id, client_id, cfile.id)
-      session.add(model)
-      session.flush()
-      session.refresh(model)
-      model_dict[model_id] = model
-
-    return [client_dict, model_dict, file_dict]
+      if verbose:
+        print("Created %s" % finger)
 
 
-  if verbose:
-    print("Adding files...")
+def add_files(db_session, verbose):
+  """Create file entries at the database"""
 
-  client_dict = {}
-  model_dict = {}
-  file_dict = {}
-  file_dict['world'] = {}
-  file_dict['dev'] = {}
+  for finger in db_session.query(Finger):
+    for session in File.session_choices:
+      file_ = File(finger, session)
+      db_session.add(file_)
 
-  if not os.path.isdir(os.path.join(imagedir,typedir)):
-    raise RuntimeError("Cannot find directory '%s'" % \
-        os.path.join(imagedir,typedir))
-
-  subdir_list = [l for l in list(filter(nodot, os.listdir(os.path.join(imagedir,typedir)))) if os.path.isdir(os.path.join(imagedir,typedir,l))]
-
-  for subdir in subdir_list:
-    file_list = list(filter(nodot, os.listdir(os.path.join(imagedir, typedir, subdir))))
-
-    for filename in file_list:
-      filename_, extension = os.path.splitext(filename)
-      if extension == '.png':
-        client_dict, model_dict, file_dict = add_file(session, typedir,
-            subdir, os.path.join(imagedir, filename), client_dict,
-            model_dict, file_dict, verbose)
-
-  return [client_dict, model_dict, file_dict]
+      if verbose:
+        print("Created %s" % file_)
 
 
-def add_protocols(session, client_dict, model_dict, file_dict, verbose):
-  """Adds protocols"""
+def retrieve_file(session, ref):
+  """Retrieves the given File object from a full path"""
 
-  # 2. ADDITIONS TO THE SQL DATABASE
-  client_full_ids = client_dict.keys()
-  client_ids = sorted(set([int(c.split('_')[0]) for c in client_full_ids]))[:50]
-  client_100_ids = [c for c in client_full_ids if int(c.split('_')[0]) in client_ids]
+  bits = re.split(r'[-_/]', ref)
+  # here is the outcome of this split:
+  # [0] client-id
+  # [1] gender (F or M)
+  # [2] client-id
+  # [3] side (L or R)
+  # [4] session (1 or 2)
+  return session.query(File).join(Finger,Client).filter(
+    File.session==bits[4],
+    Client.id==int(bits[0]),
+    Finger.side==bits[3],
+    ).one()
 
-  client_B_ids =[]
-  i = 1
-  ni = 0
 
-  while ni < 60:
-    fingers = None
+def add_protocols(session, verbose):
+  """Create protocol entries at the database"""
 
-    if ni < 48: fingers = ['left', 'right']
-    elif ni < 54: fingers = ['left']
-    else: fingers = ['right']
-
-    found = False
-    for f in fingers:
-      client_id = "%d_%s" % (i, f)
-      if client_id in client_full_ids:
-        client_B_ids.append(client_id)
-        found = True
-    if found: ni += 1
-    i += 1
-
-  protocol_list = ['1vsAll', 'B', 'NOM50','NOM'] + protocol_list_spoof
-  protocolPurpose_list = [('world', 'train'), ('dev', 'enroll'), ('dev', 'probe')]
-
-  for proto in protocol_list:
-
-    p = Protocol(proto)
-    # Add protocol
+  protocol_dir = pkg_resources.resource_filename(__name__, os.path.join('data',
+    'protocols'))
+  for name in os.listdir(protocol_dir):
+    protocol = Protocol(name)
+    session.add(protocol)
     if verbose:
-      print("Adding protocol %s..." % (proto))
+      print("Created %s" % protocol)
 
-    session.add(p)
-    session.flush()
-    session.refresh(p)
+    # training data
+    train_filename = os.path.join(protocol_dir, name, 'train.txt')
+    subset = Subset(protocol, 'train', 'train')
+    session.add(subset)
+    if verbose:
+      print("Created %s" % subset)
+    with open(train_filename, 'rt') as f:
+      for row in f:
+        filename_ref, finger_ref = row.split()
+        file_ = retrieve_file(session, filename_ref)
+        subset.files.append(file_)
+        if verbose:
+          print("Added %s to %s" % (file_, subset))
 
-    for purpose in protocolPurpose_list:
-      pu = ProtocolPurpose(p.id, purpose[0], purpose[1])
+    # enrollment data
+    models_filename = os.path.join(protocol_dir, name, 'models.txt')
+    subset = Subset(protocol, 'dev', 'enroll')
+    session.add(subset)
+    if verbose:
+      print("Created %s" % subset)
+    with open(models_filename, 'rt') as f:
+      for row in f:
+        filename_ref, model_ref, finger_ref = row.split()
+        file_ = retrieve_file(session, filename_ref)
+        subset.files.append(file_)
+        if verbose:
+          print("Added %s to %s" % (file_, subset))
 
-      if verbose > 1:
-        print(" Adding protocol purpose ('%s', '%s','%s')..." % (p.name,
-          purpose[0], purpose[1]))
+    # probing data
+    probes_filename = os.path.join(protocol_dir, name, 'probes.txt')
+    subset = Subset(protocol, 'dev', 'probe')
+    session.add(subset)
+    if verbose:
+      print("Created %s" % subset)
+    with open(probes_filename, 'rt') as f:
+      for row in f:
+        filename_ref, model_ref = row.split()
+        file_ = retrieve_file(session, filename_ref)
+        subset.files.append(file_)
+        if verbose:
+          print("Added %s to %s" % (file_, subset))
 
-      session.add(pu)
-      session.flush()
-      session.refresh(pu)
-
-      cfile_dict = file_dict[purpose[0]]
-
-      #if proto in protocol_list_spoof: continue
-      for f_id, f_file in cfile_dict.iteritems():
-
-        if verbose > 1:
-          print("   Adding file ('%s') to protocol purpose ('%s', '%s','%s')..." % (f_file.path, p.name, purpose[0], purpose[1]))
-
-        if proto == '1vsAll' and f_file.stype == 'real':
-          pu.files.append(f_file)
-
-        elif proto == 'B' and f_file.stype == 'real':
-          if f_file.client_id in client_B_ids and f_file.stype == 'real':
-            pu.files.append(f_file)
-
-        elif proto == 'NOM' and f_file.stype == 'real':
-          if ((f_file.session_id == 1 and purpose[1] == 'enroll') or (f_file.session_id == 2 and purpose[1] == 'probe')) \
-        and f_file.stype == 'real':
-            pu.files.append(f_file)
-
-        elif proto == 'NOM50' and f_file.stype == 'real':
-          if ((f_file.session_id == 1 and purpose[1] == 'enroll') or (f_file.session_id == 2 and purpose[1] == 'probe')) \
-        and f_file.client_id in client_100_ids and f_file.stype == 'real':
-            pu.files.append(f_file)
-
-    #if proto in protocol_list_spoof: continue
-    for m_id, model in model_dict.iteritems():
-
-        if proto == '1vsAll' and model.file.stype == 'real':
-          p.models.append(model)
-        elif proto == 'B':
-          if model.client_id in client_B_ids and model.file.stype == 'real':
-            p.models.append(model)
-        elif proto == 'NOM':
-          if model.file.session_id == 1 and model.file.stype == 'real':
-            p.models.append(model)
-        elif proto == 'NOM50':
-          if model.file.session_id == 1 and model.client_id in client_100_ids and model.file.stype == 'real':
-            p.models.append(model)
 
 
 def create_tables(args):
@@ -221,8 +159,10 @@ def create(args):
   # the real work...
   create_tables(args)
   s = session_try_nolock(args.type, args.files[0], echo=(args.verbose > 2))
-  client_dict, model_dict, file_dict = add_files(s, args.imagedir, args.verbose)
-  add_protocols(s, client_dict, model_dict, file_dict, args.verbose)
+  add_clients(s, args.verbose)
+  add_fingers(s, args.verbose)
+  add_files(s, args.verbose)
+  add_protocols(s, args.verbose)
   s.commit()
   s.close()
 
@@ -232,8 +172,9 @@ def add_command(subparsers):
 
   parser = subparsers.add_parser('create', help=create.__doc__)
 
-  parser.add_argument('-R', '--recreate', action='store_true', help="If set, I'll first erase the current database")
-  parser.add_argument('-v', '--verbose', action='count', help='Do SQL operations in a verbose way')
-  parser.add_argument('-D', '--imagedir', metavar='DIR', default='/idiap/project/vera/', help="Change the relative path to the directory containing the images of the VERA database (defaults to %(default)s)")
+  parser.add_argument('-R', '--recreate', action='store_true',
+    help="If set, I'll first erase the current database")
+  parser.add_argument('-v', '--verbose', action='count',
+    help='Do SQL operations in a verbose way')
 
   parser.set_defaults(func=create) #action
