@@ -119,6 +119,10 @@ def test_counts():
   nose.tools.eq_(len(db.objects(protocol='Full', groups='dev',
     purposes='enroll', model_ids=model_ids[:10])), 10)
 
+  # filtering by model ids on probes, returns all
+  nose.tools.eq_(len(db.objects(protocol='Full', groups='dev',
+    purposes='probe', model_ids=model_ids[0])), 440)
+
 
 @sql3_available
 def test_driver_api():

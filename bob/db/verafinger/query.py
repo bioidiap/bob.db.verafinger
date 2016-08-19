@@ -167,6 +167,11 @@ class Database(bob.db.base.SQLiteDatabase):
       purposes = self.check_parameters_for_validity(purposes, "purpose",
           valid_purposes)
 
+    # if only asking for 'probes', then ignore model_ids as all of our
+    # protocols do a full probe-model scan
+    if purposes and len(purposes) == 1 and 'probe' in purposes:
+      model_ids = None
+
     if model_ids:
       valid_model_ids = self.model_ids(protocol, groups)
       model_ids = self.check_parameters_for_validity(model_ids, "model_ids",
