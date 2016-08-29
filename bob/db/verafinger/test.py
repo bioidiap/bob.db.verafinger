@@ -172,3 +172,13 @@ def test_annotations():
     for y,x in roi:
       assert y < Y, 'Annotation (%d, %d) for %s surpasses the image size (%d, %d)' % (y, x, f.path, Y, X)
       assert x < X, 'Annotation (%d, %d) for %s surpasses the image size (%d, %d)' % (y, x, f.path, Y, X)
+
+
+@sql3_available
+def test_model_id_to_finger_name_conversion():
+
+  db = Database()
+
+  for f in db.objects():
+
+    assert len(db.finger_name_from_model_id(f.model_id)) == 5

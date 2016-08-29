@@ -60,6 +60,12 @@ class Database(bob.db.base.SQLiteDatabase):
     return File.session_choices
 
 
+  def finger_name_from_model_id(self, model_id):
+    """Returns the unique finger name in the database given a ``model_id``"""
+
+    return self.query(File).filter(File.model_id==model_id).one().unique_finger_name
+
+
   def model_ids(self, protocol=None, groups=None):
     """Returns a set of models for a given protocol/group
 
@@ -225,9 +231,9 @@ class Database(bob.db.base.SQLiteDatabase):
     if sessions:
       filters.append(File.session.in_(sessions))
 
-    retval = retval.join(*joins).filter(*filters).distinct().order_by('id')
-
     if model_ids:
-      return [k for k in retval if k.model_id in model_ids]
+      filters.append(File.model_id.in_(model_ids))
+
+    retval = retval.join(*joins).filter(*filters).distinct().order_by('id')
 
     return list(retval)

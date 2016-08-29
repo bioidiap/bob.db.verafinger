@@ -105,17 +105,16 @@ class File(Base, bob.db.base.File):
   session_choices = ('1', '2')
   session = Column(Enum(*session_choices))
 
+  # this column is not really required as it can be computed from other
+  # information already in the database, it is only an optimisation to allow us
+  # to quickly filter files by ``model_id``
+  model_id = Column(String(7), unique=True)
+
 
   def __init__(self, finger, session):
     self.finger = finger
     self.session = session
-
-
-  @property
-  def model_id(self):
-    '''The model name for this file'''
-
-    return '%03d_%s_%s' % (self.finger.client.id, self.finger.side,
+    self.model_id = '%03d_%s_%s' % (self.finger.client.id, self.finger.side,
         self.session)
 
 
@@ -124,6 +123,13 @@ class File(Base, bob.db.base.File):
     return '%03d-%s/%03d_%s_%s' % (self.finger.client.id,
         self.finger.client.gender, self.finger.client.id, self.finger.side,
         self.session)
+
+
+  @property
+  def unique_finger_name(self):
+    """Unique name for a given finger in the database"""
+
+    return '%03d_%s' % (self.finger.client.id, self.finger.side)
 
 
   def load(self, directory=None, extension='.png'):
