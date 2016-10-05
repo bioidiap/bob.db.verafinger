@@ -71,19 +71,20 @@ class Database(bob.db.base.SQLiteDatabase):
 
     Parameters:
 
-      protocol (str, list, Optional): One or more of the supported protocols.
-        If not set, returns data from all protocols
+      protocol (:py:class:`str`, :py:class:`list`, optional): One or more of
+        the supported protocols.  If not set, returns data from all protocols
 
-      groups (str, list, Optional): One or more of the supported groups. If not
-        set, returns data from all groups. Notice this parameter should either
-        not set or set to ``dev``. Otherwise, this method will return an empty
-        list given we don't have a test set, only a development set.
+      groups (:py:class:`str`, :py:class:`list`, optional): One or more of the
+        supported groups. If not set, returns data from all groups. Notice this
+        parameter should either not set or set to ``dev``. Otherwise, this
+        method will return an empty list given we don't have a test set, only a
+        development set.
 
 
     Returns:
 
       list: A list of string corresponding model identifiers with the specified
-        filtering criteria
+      filtering criteria
 
     """
 
@@ -129,32 +130,32 @@ class Database(bob.db.base.SQLiteDatabase):
 
     Parameters:
 
-      protocol (str, list, Optional): One or more of the supported protocols.
-        If not set, returns data from all protocols
+      protocol (:py:class:`str`, :py:class:`list`, optional): One or more of
+        the supported protocols. If not set, returns data from all protocols
 
-      groups (str, list, Optional): One or more of the supported groups. If not
-        set, returns data from all groups
+      groups (:py:class:`str`, :py:class:`list`, optional): One or more of the
+        supported groups. If not set, returns data from all groups
 
-      purposes (str, list, Optional): One or more of the supported purposes. If
-        not set, returns data for all purposes
+      purposes (:py:class:`str`, :py:class:`list`, optional): One or more of
+        the supported purposes. If not set, returns data for all purposes
 
-      model_ids (str, list, Optional): If set, limit output using the provided
-        model identifiers
+      model_ids (:py:class:`str`, :py:class:`list`, optional): If set, limit
+        output using the provided model identifiers
 
-      genders (str, list, Optional): If set, limit output using the provided
-        gender identifiers
+      genders (:py:class:`str`, :py:class:`list`, optional): If set, limit
+        output using the provided gender identifiers
 
-      sides (str, list, Optional): If set, limit output using the provided
-        side identifier
+      sides (:py:class:`str`, :py:class:`list`, optional): If set, limit output
+        using the provided side identifier
 
-      sessions (str, list, Optional): If set, limit output using the provided
-        session identifiers
+      sessions (:py:class:`str`, :py:class:`list`, optional): If set, limit
+        output using the provided session identifiers
 
 
     Returns:
 
       list: A list of :py:class:`File` objects corresponding to the filtering
-        criteria.
+      criteria.
 
     """
 
