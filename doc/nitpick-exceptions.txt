@@ -1,3 +1,2 @@
-py:class bob.db.base.file.File
-py:class bob.db.base.database.SQLiteDatabase
+# This is an undocumented, dynamic type
 py:class sqlalchemy.ext.declarative.api.Base
