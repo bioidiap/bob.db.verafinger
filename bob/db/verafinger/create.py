@@ -136,8 +136,8 @@ def create_tables(args):
 
   from bob.db.base.utils import create_engine_try_nolock
 
-  engine = create_engine_try_nolock(args.type, args.files[0],
-      echo=(args.verbose > 2))
+  echo = args.verbose > 2 if args.verbose else False
+  engine = create_engine_try_nolock(args.type, args.files[0], echo=echo)
   Base.metadata.create_all(engine)
 
 
@@ -158,7 +158,8 @@ def create(args):
 
   # the real work...
   create_tables(args)
-  s = session_try_nolock(args.type, args.files[0], echo=(args.verbose > 2))
+  echo = args.verbose > 2 if args.verbose else False
+  s = session_try_nolock(args.type, args.files[0], echo=echo)
   add_clients(s, args.verbose)
   add_fingers(s, args.verbose)
   add_files(s, args.verbose)
