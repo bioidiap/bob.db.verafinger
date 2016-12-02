@@ -16,6 +16,7 @@ import numpy
 
 from sqlalchemy import Table, Column, Integer, String, ForeignKey
 from sqlalchemy import or_, and_, not_
+from sqlalchemy import UniqueConstraint
 
 from bob.db.base.sqlalchemy_migration import Enum, relationship
 from sqlalchemy.orm import backref
@@ -72,6 +73,8 @@ class Finger(Base):
   side_choices = ('L', 'R')
   side = Column(Enum(*side_choices))
 
+  UniqueConstraint('client_id', 'side')
+
 
   def __init__(self, client, side):
     self.client = client
@@ -104,6 +107,8 @@ class File(Base, bob.db.base.File):
 
   session_choices = ('1', '2')
   session = Column(Enum(*session_choices))
+
+  UniqueConstraint('finger_id', 'session')
 
   # this column is not really required as it can be computed from other
   # information already in the database, it is only an optimisation to allow us
@@ -198,8 +203,8 @@ class Protocol(Base):
 
 
 subset_file_association = Table('subset_file_association', Base.metadata,
-  Column('subset_id', Integer, ForeignKey('file.id')),
-  Column('file_id', Integer, ForeignKey('subset.id')))
+  Column('file_id', Integer, ForeignKey('file.id')),
+  Column('subset_id', Integer, ForeignKey('subset.id')))
 
 
 class Subset(Base):
