@@ -20,51 +20,44 @@ class Database(bob.db.base.SQLiteDatabase):
   and for the data itself inside the database.
   """
 
-  def __init__(self):
-    super(Database, self).__init__(SQLITE_FILE, File)
-
+  def __init__(self, original_directory=None, original_extension=None):
+    super(Database, self).__init__(SQLITE_FILE, File,
+                                   original_directory, original_extension)
 
   def protocol_names(self):
     """Returns a list of all supported protocols"""
 
     return tuple([k.name for k in self.query(Protocol).order_by(Protocol.name)])
 
-
   def purposes(self):
     """Returns a list of all supported purposes"""
 
     return Subset.purpose_choices
-
 
   def groups(self):
     """Returns a list of all supported groups"""
 
     return Subset.group_choices
 
-
   def genders(self):
     """Returns a list of all supported gender values"""
 
     return Client.gender_choices
-
 
   def sides(self):
     """Returns a list of all supported side values"""
 
     return Finger.side_choices
 
-
   def sessions(self):
     """Returns a list of all supported session values"""
 
     return File.session_choices
 
-
   def finger_name_from_model_id(self, model_id):
     """Returns the unique finger name in the database given a ``model_id``"""
 
-    return self.query(File).filter(File.model_id==model_id).one().unique_finger_name
-
+    return self.query(File).filter(File.model_id == model_id).one().unique_finger_name
 
   def model_ids(self, protocol=None, groups=None):
     """Returns a set of models for a given protocol/group
@@ -92,12 +85,12 @@ class Database(bob.db.base.SQLiteDatabase):
     if protocol:
       valid_protocols = self.protocol_names()
       protocols = self.check_parameters_for_validity(protocol, "protocol",
-          valid_protocols)
+                                                     valid_protocols)
 
     if groups:
       valid_groups = self.groups()
       groups = self.check_parameters_for_validity(groups, "group",
-          valid_groups)
+                                                  valid_groups)
 
     retval = self.query(File)
 
@@ -111,7 +104,8 @@ class Database(bob.db.base.SQLiteDatabase):
       subquery = subquery.join(Protocol)
       subfilters.append(Protocol.name.in_(protocols))
 
-    if groups: subfilters.append(Subset.group.in_(groups))
+    if groups:
+      subfilters.append(Subset.group.in_(groups))
 
     subfilters.append(Subset.purpose == 'enroll')
 
@@ -122,9 +116,8 @@ class Database(bob.db.base.SQLiteDatabase):
 
     return sorted(set([k.model_id for k in retval.distinct()]))
 
-
   def objects(self, protocol=None, groups=None, purposes=None,
-      model_ids=None, genders=None, sides=None, sessions=None):
+              model_ids=None, genders=None, sides=None, sessions=None):
     """Returns objects filtered by criteria
 
 
@@ -163,16 +156,17 @@ class Database(bob.db.base.SQLiteDatabase):
     if protocol:
       valid_protocols = self.protocol_names()
       protocols = self.check_parameters_for_validity(protocol, "protocol",
-          valid_protocols)
+                                                     valid_protocols)
 
     if groups:
       valid_groups = self.groups()
-      groups = self.check_parameters_for_validity(groups, "group", valid_groups)
+      groups = self.check_parameters_for_validity(
+          groups, "group", valid_groups)
 
     if purposes:
       valid_purposes = self.purposes()
       purposes = self.check_parameters_for_validity(purposes, "purpose",
-          valid_purposes)
+                                                    valid_purposes)
 
     # if only asking for 'probes', then ignore model_ids as all of our
     # protocols do a full probe-model scan
@@ -182,12 +176,12 @@ class Database(bob.db.base.SQLiteDatabase):
     if model_ids:
       valid_model_ids = self.model_ids(protocol, groups)
       model_ids = self.check_parameters_for_validity(model_ids, "model_ids",
-          valid_model_ids)
+                                                     valid_model_ids)
 
     if genders:
       valid_genders = self.genders()
       genders = self.check_parameters_for_validity(genders, "genders",
-          valid_genders)
+                                                   valid_genders)
 
     if sides:
       valid_sides = self.sides()
@@ -196,7 +190,7 @@ class Database(bob.db.base.SQLiteDatabase):
     if sessions:
       valid_sessions = self.sessions()
       sessions = self.check_parameters_for_validity(sessions, "sessions",
-          valid_sessions)
+                                                    valid_sessions)
 
     retval = self.query(File)
 
@@ -212,8 +206,10 @@ class Database(bob.db.base.SQLiteDatabase):
         subquery = subquery.join(Protocol)
         subfilters.append(Protocol.name.in_(protocols))
 
-      if groups: subfilters.append(Subset.group.in_(groups))
-      if purposes: subfilters.append(Subset.purpose.in_(purposes))
+      if groups:
+        subfilters.append(Subset.group.in_(groups))
+      if purposes:
+        subfilters.append(Subset.purpose.in_(purposes))
 
       subsets = subquery.filter(*subfilters)
 
@@ -223,7 +219,8 @@ class Database(bob.db.base.SQLiteDatabase):
       joins.append(Finger)
 
       if genders:
-        fingers = self.query(Finger).join(Client).filter(Client.gender.in_(genders))
+        fingers = self.query(Finger).join(
+            Client).filter(Client.gender.in_(genders))
         filters.append(Finger.id.in_([k.id for k in fingers]))
 
       if sides:
