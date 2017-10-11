@@ -17,4 +17,5 @@ dist
 build
 *.egg
 src/
+bob/db/verafinger/data/
 db.sql3
