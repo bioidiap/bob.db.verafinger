@@ -168,7 +168,7 @@ class File(Base, bob.db.base.File):
 
     Returns:
 
-      numpy.ndarray: A 2D array of 8-bit unsigned integers corresponding to
+      numpy.ndarray: A 2D array of 16-bit unsigned integers corresponding to
         annotations for the given fingervein image. Points are loaded in (y,x)
         format so, the first column of the returned array correspond to the
         y-values while the second column to the x-values of each coordinate.
