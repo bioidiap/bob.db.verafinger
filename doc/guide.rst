@@ -89,7 +89,7 @@ this dataset. The annotations mark the place where the finger is on the image,
 excluding the background. The annotation file is a text file with one
 annotation per line in the format ``(y, x)``, respecting Bob's image encoding
 convention. The interconnection of these points in a polygon forms the RoI.
-Anntations can be loaded using :py:meth:`bob.db.verafinger.File.roi`.
+Annotations can be loaded using :py:meth:`bob.db.verafinger.File.roi`.
 
 
 Protocols
