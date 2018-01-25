@@ -81,6 +81,17 @@ index and a second time the second index. The whole process took around 5
 minutes per subject in average.
 
 
+Annotations
+===========
+
+We provide region-of-interest (RoI) **hand-made** annotations for all images in
+this dataset. The annotations mark the place where the finger is on the image,
+excluding the background. The annotation file is a text file with one
+annotation per line in the format ``(y, x)``, respecting Bob's image encoding
+convention. The interconnection of these points in a polygon forms the RoI.
+Anntations can be loaded using :py:meth:`bob.db.verafinger.File.roi`.
+
+
 Protocols
 ---------
 
