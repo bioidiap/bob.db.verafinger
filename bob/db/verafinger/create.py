@@ -95,7 +95,7 @@ def add_protocols(session, verbose):
       print("Created %s" % subset)
     with open(train_filename, 'rt') as f:
       for row in f:
-        filename_ref, finger_ref = row.split()
+        filename_ref = row.strip()
         file_ = retrieve_file(session, filename_ref)
         subset.files.append(file_)
         if verbose:
@@ -109,7 +109,7 @@ def add_protocols(session, verbose):
       print("Created %s" % subset)
     with open(models_filename, 'rt') as f:
       for row in f:
-        filename_ref, model_ref, finger_ref = row.split()
+        filename_ref = row.strip()
         file_ = retrieve_file(session, filename_ref)
         subset.files.append(file_)
         if verbose:
@@ -123,7 +123,7 @@ def add_protocols(session, verbose):
       print("Created %s" % subset)
     with open(probes_filename, 'rt') as f:
       for row in f:
-        filename_ref, model_ref = row.split()
+        filename_ref = row.strip()
         file_ = retrieve_file(session, filename_ref)
         subset.files.append(file_)
         if verbose:
