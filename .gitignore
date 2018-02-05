@@ -19,3 +19,4 @@ build
 src/
 bob/db/verafinger/data/
 db.sql3
+record.txt
