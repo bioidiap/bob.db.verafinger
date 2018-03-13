@@ -29,7 +29,7 @@ def dumplist(args):
     output = null()
 
   for f in r:
-    output.write('%s\n' % (f.make_path(args.directory, args.extension),))
+    output.write('%s\n' % f.make_path(args.directory, args.extension))
 
   return 0
 
@@ -43,13 +43,16 @@ def checkfiles(args):
   r = db.objects()
 
   # go through all files, check if they are available on the filesystem
-  good = []
   bad = []
   for f in r:
-    if os.path.exists(f.make_path(args.directory, args.extension)):
-      good.append(f)
-    else:
-      bad.append(f)
+    path = f.make_path(args.directory, args.extension)
+    if not os.path.exists(path): bad.append(path)
+
+    #check annotations
+    if args.annotations and f.source == 'full':
+      dirname = os.path.join(args.directory, 'annotations', 'roi')
+      path = f.make_path(dirname, '.txt')
+      if not os.path.exists(path): bad.append(path)
 
   # report
   output = sys.stdout
@@ -58,10 +61,8 @@ def checkfiles(args):
     output = null()
 
   if bad:
-    for f in bad:
-      output.write('Cannot find file "%s"\n' % (f.make_path(args.directory, args.extension),))
-    output.write('%d files (out of %d) were not found at "%s"\n' % \
-      (len(bad), len(r), args.directory))
+    for p in bad: output.write('Cannot find file `%s\'\n' % p)
+    output.write('%d files (out of %d) were not found\n' % (len(bad), len(r)))
 
   return 0
 
@@ -93,8 +94,7 @@ class Interface(BaseInterface):
 
     from . import __doc__ as docs
 
-    subparsers = self.setup_parser(parser,
-        "VERA Fingervein database", docs)
+    subparsers = self.setup_parser(parser, "VERA Fingervein database", docs)
 
     # example: get the "create" action from a submodule
     from .create import add_command as create_command
@@ -105,20 +105,23 @@ class Interface(BaseInterface):
     import argparse
     db = Database()
 
+    from .create import VERAFINGER_PATH
+
     parser = subparsers.add_parser('dumplist', help=dumplist.__doc__)
-    parser.add_argument('-d', '--directory', default='', help="if given, this path will be prepended to every entry returned.")
-    parser.add_argument('-e', '--extension', default='', help="if given, this extension will be appended to every entry returned.")
-    parser.add_argument('-p', '--protocol', help="if given, limits the dump to a particular subset of the data that corresponds to the given protocol.", choices=db.protocol_names() if db.is_valid() else ())
-    parser.add_argument('-u', '--purpose', help="if given, this value will limit the output files to those designed for the given purposes.", choices=db.purposes() if db.is_valid() else ())
+    parser.add_argument('-d', '--directory', default=VERAFINGER_PATH, help="if given, this path will be prepended to every entry returned [default: %(default)s)]")
+    parser.add_argument('-e', '--extension', default='', help="if given, this extension will be appended to every entry returned")
+    parser.add_argument('-p', '--protocol', help="if given, limits the dump to a particular subset of the data that corresponds to the given protocol", choices=db.protocol_names() if db.is_valid() else ())
+    parser.add_argument('-u', '--purpose', help="if given, this value will limit the output files to those designed for the given purposes", choices=db.purposes() if db.is_valid() else ())
     parser.add_argument('-m', '--models', type=str, help="if given, limits the dump to a particular model")
-    parser.add_argument('-g', '--group', help="if given, this value will limit the output files to those belonging to a particular protocolar group.", choices=db.groups() if db.is_valid() else ())
-    parser.add_argument('-c', '--class', dest='sclass', help="if given, this value will limit the output files to those belonging to the given classes.", choices=('client', 'impostor'))
+    parser.add_argument('-g', '--group', help="if given, this value will limit the output files to those belonging to a particular protocolar group", choices=db.groups() if db.is_valid() else ())
+    parser.add_argument('-c', '--class', dest='sclass', help="if given, this value will limit the output files to those belonging to the given classes", choices=('client', 'impostor'))
     parser.add_argument('--self-test', dest="selftest", action='store_true', help=argparse.SUPPRESS)
     parser.set_defaults(func=dumplist) #action
 
     # the "checkfiles" action
     parser = subparsers.add_parser('checkfiles', help=checkfiles.__doc__)
-    parser.add_argument('-d', '--directory', default='', help="if given, this path will be prepended to every entry returned.")
-    parser.add_argument('-e', '--extension', default='.png', help="if given, this extension will be appended to every entry returned.")
+    parser.add_argument('-d', '--directory', default=VERAFINGER_PATH, help="if given, this path will be prepended to every entry checked [default: %(default)s]")
+    parser.add_argument('-e', '--extension', default='.png', help="if given, this extension will be appended to every entry returned")
+    parser.add_argument('-a', '--annotations', dest="annotations", action='store_true', help="if set, also check for the availability of annotations (extension is '.txt')")
     parser.add_argument('--self-test', dest="selftest", action='store_true', help=argparse.SUPPRESS)
     parser.set_defaults(func=checkfiles) #action

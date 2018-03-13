@@ -81,6 +81,13 @@ class Finger(Base):
     self.side = side
 
 
+  @property
+  def unique_name(self):
+    """Unique name for this finger in the database"""
+
+    return '%03d_%s' % (self.client.id, self.side)
+
+
   def side_display(self):
     """Returns a representation of the finger side"""
 
@@ -94,13 +101,19 @@ class Finger(Base):
 class File(Base, bob.db.base.File):
   """Unique files in the database, referred by a string
 
-  Files have the format ``001-M/001_L_1`` (i.e.
-  <client>-<gender>/<client>_<side>_<session>)
+  Files have the format ``full/bf/001-M/001_L_1`` (i.e.
+  <size>/<source>/<client>-<gender>/<client>_<side>_<session>)
   """
 
   __tablename__ = 'file'
 
   id = Column(Integer, primary_key=True)
+
+  size_choices = ('full', 'cropped')
+  size = Column(Enum(*size_choices))
+
+  source_choices = ('bf', 'pa') #bona fide or presentation attacks
+  source = Column(Enum(*source_choices))
 
   finger_id = Column(Integer, ForeignKey('finger.id'))
   finger = relationship("Finger", backref=backref("files", order_by=id))
@@ -108,15 +121,17 @@ class File(Base, bob.db.base.File):
   session_choices = ('1', '2')
   session = Column(Enum(*session_choices))
 
-  UniqueConstraint('finger_id', 'session')
+  UniqueConstraint('size', 'source', 'finger_id', 'session')
 
   # this column is not really required as it can be computed from other
   # information already in the database, it is only an optimisation to allow us
   # to quickly filter files by ``model_id``
-  model_id = Column(String(7), unique=True)
+  model_id = Column(String(7))
 
 
-  def __init__(self, finger, session):
+  def __init__(self, size, source, finger, session):
+    self.size = size
+    self.source = source
     self.finger = finger
     self.session = session
     self.model_id = '%03d_%s_%s' % (self.finger.client.id, self.finger.side,
@@ -125,16 +140,9 @@ class File(Base, bob.db.base.File):
 
   @property
   def path(self):
-    return '%03d-%s/%03d_%s_%s' % (self.finger.client.id,
-        self.finger.client.gender, self.finger.client.id, self.finger.side,
-        self.session)
-
-
-  @property
-  def unique_finger_name(self):
-    """Unique name for a given finger in the database"""
-
-    return '%03d_%s' % (self.finger.client.id, self.finger.side)
+    return '%s/%s/%03d-%s/%03d_%s_%s' % (self.size, self.source,
+        self.finger.client.id, self.finger.client.gender,
+        self.finger.client.id, self.finger.side, self.session)
 
 
   def load(self, directory=None, extension='.png'):
@@ -143,9 +151,16 @@ class File(Base, bob.db.base.File):
 
     Parameters:
 
-      directory (str): The path to the root of the database installation.  This
-        is the path leading to files named ``DDD-G`` where ``D``'s correspond
-        to digits and ``G`` to the client gender. For example ``032-M``.
+      directory (str): The path to the root of the dataset installation.  This
+        is, *normally*, the path leading to file named ``metadata.csv`` and
+        directories ``full``, ``cropped``, ``annotations`` and ``protocols``,
+        but can be anything else. This behavior makes this function re-usable
+        in the context of preprocessing and feature extraction, where
+        intermediate files may be produced by your processing pipeline and can
+        be reloaded using the same API.
+
+      extension (str): The extension to use for loading the file in question.
+        If not passed, the default ``.png`` is used.
 
 
     Returns:
@@ -158,12 +173,19 @@ class File(Base, bob.db.base.File):
     return bob.io.base.load(self.make_path(directory, '.png'))
 
 
-  def roi(self):
+  def roi(self, directory):
     """Loads region-of-interest annotations for a particular image
 
     The returned points (see return value below) correspond to a polygon in the
     2D space delimiting the finger image. It is up to you to generate a mask
     out of these annotations.
+
+
+    Parameters:
+
+      directory (str): The path to the root of the dataset installation.  This
+        is, *forcebly*, the path leading to file named ``metadata.csv`` and
+        directories ``full``, ``cropped``, ``annotations`` and ``protocols``.
 
 
     Returns:
@@ -175,11 +197,7 @@ class File(Base, bob.db.base.File):
 
     """
 
-    # calculate where the annotations for this file are
-    directory = pkg_resources.resource_filename(__name__,
-        os.path.join('data', 'annotations', 'roi'))
-
-    # loads it w/o mercy ;-)
+    directory = os.path.join(directory, 'annotations', 'roi')
     return numpy.loadtxt(self.make_path(directory, '.txt'), dtype='uint16')
 
 
@@ -220,7 +238,7 @@ class Subset(Base):
   group_choices = ('train', 'dev')
   group = Column(Enum(*group_choices))
 
-  purpose_choices = ('train', 'enroll', 'probe')
+  purpose_choices = ('train', 'enroll', 'probe', 'attack')
   purpose = Column(Enum(*purpose_choices))
 
   files = relationship("File",
@@ -235,4 +253,4 @@ class Subset(Base):
 
 
   def __repr__(self):
-    return "Subset(%s, %s, %s)" % (self.protocol, self.group, self.purpose)
+    return "Subset(%s, '%s', '%s')" % (self.protocol, self.group, self.purpose)

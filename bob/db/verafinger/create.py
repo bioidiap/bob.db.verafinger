@@ -12,11 +12,14 @@ import pkg_resources
 from .models import *
 
 
-def add_clients(session, verbose):
+VERAFINGER_PATH = os.environ.get('VERAFINGER_PATH',
+    '/idiap/project/vera/databases/new/fingervein')
+
+
+def add_clients(session, path, verbose):
   """Create client entries at the database"""
 
-  metadata = pkg_resources.resource_filename(__name__, os.path.join('data',
-    'metadata.csv'))
+  metadata = os.path.join(path, 'metadata.csv')
   with open(metadata, 'rt') as f:
     header = None
     for row in csv.reader(f):
@@ -51,15 +54,15 @@ def add_files(db_session, verbose):
   """Create file entries at the database"""
 
   for finger in db_session.query(Finger):
-    for session in File.session_choices:
-      file_ = File(finger, session)
-      db_session.add(file_)
+    for size in File.size_choices:
+      for source in File.source_choices:
+        for session in File.session_choices:
+          file_ = File(size, source, finger, session)
+          db_session.add(file_)
+          if verbose: print("Created %s" % file_)
 
-      if verbose:
-        print("Created %s" % file_)
 
-
-def retrieve_file(session, ref):
+def retrieve_file(session, size, source, ref):
   """Retrieves the given File object from a full path"""
 
   bits = re.split(r'[-_/]', ref)
@@ -70,17 +73,19 @@ def retrieve_file(session, ref):
   # [3] side (L or R)
   # [4] session (1 or 2)
   return session.query(File).join(Finger,Client).filter(
+    File.size==size, #full or cropped
+    File.source==source, #bf or pa
     File.session==bits[4],
     Client.id==int(bits[0]),
     Finger.side==bits[3],
     ).one()
 
 
-def add_protocols(session, verbose):
-  """Create protocol entries at the database"""
+def add_bio_protocols(session, path, verbose):
+  """Creates biometric/vulnerability analysis protocols entries at the database
+  """
 
-  protocol_dir = pkg_resources.resource_filename(__name__, os.path.join('data',
-    'protocols'))
+  protocol_dir = os.path.join(path, 'protocols', 'bio')
   for name in os.listdir(protocol_dir):
     protocol = Protocol(name)
     session.add(protocol)
@@ -95,8 +100,10 @@ def add_protocols(session, verbose):
       print("Created %s" % subset)
     with open(train_filename, 'rt') as f:
       for row in f:
-        filename_ref = row.strip()
-        file_ = retrieve_file(session, filename_ref)
+        # we ignore the client identifier as it can be derived from the file
+        # name in the case of this dataset
+        filename_ref, _ = row.strip().split()
+        file_ = retrieve_file(session, 'full', 'bf', filename_ref)
         subset.files.append(file_)
         if verbose:
           print("Added %s to %s" % (file_, subset))
@@ -109,25 +116,37 @@ def add_protocols(session, verbose):
       print("Created %s" % subset)
     with open(models_filename, 'rt') as f:
       for row in f:
-        filename_ref = row.strip()
-        file_ = retrieve_file(session, filename_ref)
+        # we ignore the model and client identifier as they can be derived from
+        # the file name in the case of this dataset
+        filename_ref, _, _ = row.strip().split()
+        file_ = retrieve_file(session, 'full', 'bf', filename_ref)
         subset.files.append(file_)
         if verbose:
           print("Added %s to %s" % (file_, subset))
 
-    # probing data
+    # probing data, including presentation attacks
     probes_filename = os.path.join(protocol_dir, name, 'probes.txt')
-    subset = Subset(protocol, 'dev', 'probe')
-    session.add(subset)
+    bf_subset = Subset(protocol, 'dev', 'probe')
+    session.add(bf_subset)
     if verbose:
-      print("Created %s" % subset)
+      print("Created %s" % bf_subset)
+    pa_subset = Subset(protocol, 'dev', 'attack')
+    session.add(pa_subset)
+    if verbose:
+      print("Created %s" % pa_subset)
     with open(probes_filename, 'rt') as f:
       for row in f:
-        filename_ref = row.strip()
-        file_ = retrieve_file(session, filename_ref)
-        subset.files.append(file_)
+        # we ignore the client identifier as it can be derived from the file
+        # name in the case of this dataset
+        filename_ref, _ = row.strip().split()
+        file_ = retrieve_file(session, 'full', 'bf', filename_ref)
+        bf_subset.files.append(file_)
         if verbose:
-          print("Added %s to %s" % (file_, subset))
+          print("Added %s to %s" % (file_, bf_subset))
+        file_ = retrieve_file(session, 'full', 'pa', filename_ref)
+        pa_subset.files.append(file_)
+        if verbose:
+          print("Added %s to %s" % (file_, pa_subset))
 
 
 
@@ -160,10 +179,10 @@ def create(args):
   create_tables(args)
   echo = args.verbose > 2 if args.verbose else False
   s = session_try_nolock(args.type, args.files[0], echo=echo)
-  add_clients(s, args.verbose)
+  add_clients(s, args.directory, args.verbose)
   add_fingers(s, args.verbose)
   add_files(s, args.verbose)
-  add_protocols(s, args.verbose)
+  add_bio_protocols(s, args.directory, args.verbose)
   s.commit()
   s.close()
 
@@ -173,6 +192,7 @@ def add_command(subparsers):
 
   parser = subparsers.add_parser('create', help=create.__doc__)
 
+  parser.add_argument('-d', '--directory', default=VERAFINGER_PATH, help="if given, use this path to search for protocol files [default: %(default)s]")
   parser.add_argument('-R', '--recreate', action='store_true',
     help="If set, I'll first erase the current database")
   parser.add_argument('-v', '--verbose', action='count',

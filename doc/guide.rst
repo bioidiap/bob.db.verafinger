@@ -1,178 +1,100 @@
 .. vim: set fileencoding=utf-8 :
-.. Thu 25 Jan 2018 12:02:27 CET
+.. Tue 13 Mar 10:11:57 2018 CET
 
-==============
- User's Guide
-==============
+.. _bob.db.verafinger.guide:
 
-This package contains the access API and descriptions for the `VERA Fingervein
-Database`_. It only contains the Bob_ accessor methods to use the DB directly
-from python, with our certified protocols. The actual raw data for the dataset
-should be downloaded from the original URL.
+============
+ User Guide
+============
 
+This section contains information for installing and using basic functionality
+of this package to view database information and check its consistency.
 
-Data
-----
+Before proceeding, make sure you install the `VERA Fingervein Database`_ and
+annotate its final destination on your hard drive. For the purposes of this
+guide, we assume you have downloaded and uncompressed the dataset into a
+(ficticious) folder called ``/path/to/verafinger``. Replace that string from
+the command examples below to the actual location of files in your hard drive.
 
-All fingervein samples have been recorded using the open finger vein sensor
-described in [Ton+12]_. A total of 110 subjects presented their 2 indexes to
-the sensor in a single session and recorded 2 samples per finger with 5 minutes
-separation between the 2 trials. The database, therefore, contains a total of
-440 samples and 220 unique fingers.
+Once you uncompressed the files in the `VERA Fingervein Database`_, you should
+be able to see at least 5 entries among directories and files:
 
-The recordings were performed at 2 different locations, always inside buildings
-with normal light conditions. The data for the first 78 subjects derives from
-the the first location while the remaining 32 come from the second location.
+.. code-block:: sh
 
-The dataset is composed of 40 women and 70 men whose ages are between 18 and 60
-with an average at 33. Information about gender and age of subjects are provided
-with our dataset interface.
-
-Samples are stored as follow with the following filename convention:
-``004-F/004_L_2``. The fields can be interpreted as
-``<subject-id>-<gender>/<subject-id>_<side>_<trial>``. The ``<subject-id>`` is
-a 3 digits number that stands for the subject's **unique** identifier. The
-``<gender>`` value can be either ``M`` (male) or ``F`` (female). The ``<side>``
-corresponds to the index finger side and can be set to either "R" or "L"
-("Right" or "Left"). The ``<trial>`` corresponds to either the first (1) or the
-second (2) time the subject interacted with the device.
-
-Images are stored in PNG format, with a size of 250x665 pixels (height, width).
-Size of the files is around 80 kbytes per sample.
-
-Here is an example of samples from the database, for subject ``029-M``:
-
-.. figure:: img/029_L_1.png
-
-   Image from subject ``0029`` (male). This image corresponds to the first
-   trial for the left index finger.
+   $ ls -l /path/to/verafinger
+   total 4
+   drwxr-xr-x 5 user staff  170 Mar 10 13:56 cropped/
+   drwxr-xr-x 4 user staff  136 Mar 10 13:57 full/
+   -rw-r--r-- 1 user staff 1004 Mar 10 14:03 metadata.csv
+   drwxr-xr-x 6 user staff  204 Mar 10 14:32 annotations/
+   drwxr-xr-x 3 user staff  102 Mar 12 17:29 protocols/
 
 
-.. figure:: img/029_L_2.png
+Checking Installation
+---------------------
 
-   Image from subject ``0029`` (male). This image corresponds to the second
-   trial for the left index finger.
+You can quickly check your installation of the database by using the following
+command line:
 
+.. code-block:: sh
 
-.. figure:: img/029_R_1.png
-
-   Image from subject ``0029`` (male). This image corresponds to the first
-   trial for the right index finger.
-
-
-.. figure:: img/029_R_2.png
-
-   Image from subject ``0029`` (male). This image corresponds to the second
-   trial for the right index finger.
+   $ bob_dbmanage.py verafinger checkfiles --directory=/path/to/verafinger --annotations
 
 
-Acquisition Protocol
-====================
-
-Subjects were asked to put their index in the sensor and then adjust the
-position such that the finger is on the center of the image. Bram Ton's
-Graphical User Interface (GUI) was used for visual feedback, Near Infra Red
-light control and acquisition.  When the automated light control was performing
-unproperly the operator adjusted manually the intensities of the leds to
-achieve a better contrast of the vein pattern.
-
-Subjects first presented an index, then the other, a second time the first
-index and a second time the second index. The whole process took around 5
-minutes per subject in average.
+If everything is OK, the command should return a status of 0 (zero) and print
+no output. Any missing files from the dataset will be printed on the output. In
+this case, check your installation once more.
 
 
-Annotations
-===========
+Dumping File Lists
+------------------
 
-We provide region-of-interest (RoI) **hand-made** annotations for all images in
-this dataset. The annotations mark the place where the finger is on the image,
-excluding the background. The annotation file is a text file with one
-annotation per line in the format ``(y, x)``, respecting Bob's image encoding
-convention. The interconnection of these points in a polygon forms the RoI.
-Annotations can be loaded using :py:meth:`bob.db.verafinger.File.roi`.
+It may be useful to dump file lists that can be used by another framework to
+process the raw files in this dataset. You can do this with the following
+command:
 
+.. code-block:: sh
 
-Protocols
----------
+   $ bob_dbmanage.py verafinger dumplist --directory=/path/to/verafinger --protocol=Full --group=dev --purpose=enroll --model=001_L_1 --extension='.png'
+   /path/to/verafinger/full/bf/001-M/001_L_1.png
 
-This package comes preset with 4 distinct evaluation protocols on the `VERA
-fingervein database`_. They are detailed next.
+The command above lists files used to enroll the model ``001_L_1``. Other
+options exist if you use the flag ``--help`` on the command line.
 
 
-The "Nom" protocol
-==================
+Metadata Population
+-------------------
 
-The "Nom" (normal operation mode) protocol corresponds to the standard
-verification scenario. For the VERA database, each finger for all subjects will
-be used for enrolling and probing. Data from the first trial is used for
-enrollment, while data from the second trial is used for probing. Matching
-happens exhaustively. In summary:
+If you built this package from scratch, and did not use our recommended
+`installation instructions`_, you will need to re-create the internal package
+metadata, which is not shipped with the source code. To do so, execute the
+following command:
 
- * 110 subjects x 2 fingers = 220 unique fingers
- * 2 trials per finger, so 440 unique images
- * Use trial 1 for enrollment and trial 2 for probing
- * Total of 220 genuine scores and 220x219 = 48180 impostor scores
- * No images for training
+.. code-block:: sh
+
+   $ bob_dbmanage.py verafinger create --directory=/path/to/verafinger
 
 
-The "Fifty" protocol
-====================
-
-The "Fifty" protocol is meant as a reduced version of the "Nom" protocol, for
-quick check purposes. All definitions are the same, except we only use the
-first 50 subjects in the dataset (numbered 1 until 59). In summary:
-
- * 50 subjects x 2 fingers = 100 unique fingers
- * 2 sessions per finger, so 200 unique images
- * Use trial sample 1 for enrollment and trial sample 2 for probing
- * Total of 100 genuine scores and 100x99 = 9900 impostor scores
- * Use all remaining images for training (440-200 = 240 images). In this case,
-   the remaining images all belong to different subjects that those on the
-   development set.
+Optionally pass one more ``-v`` flags to increase verbosity. Use the flag
+``--recreate`` to overwrite any existing metadata files.
 
 
-The "B" protocol
-================
+Metadata Downloading
+--------------------
 
-The "B" protocol was created to simulate an evaluation scenario similar to that
-from the UTFVP database (see [Ton+12]_). 108 unique fingers were picked:
+You may want to download a version of the metadata files provided by our
+servers. In this case, you can skip the creation step above and just do:
 
- * Each of the 2 fingers from the first 48 subjects (96 unique fingers),
-   subjects numbered from 1 until 57
- * The left fingers from the next 6 subjects (6 unique fingers), subjects
-   numbered from 58 until 65
- * The right fingers from the next 6 subjects (6 unique fingers), subjects
-   numbered from 66 until 72
+.. code-block:: sh
 
-Then, protocol "B" was setup in this way:
-
-  * 108 unique fingers
-  * 2 trials per finger, so 216 unique images
-  * Match all fingers against all images (even against itself)
-  * Total of 216x2 = 432 genuine scores and 216x214 = 46224 impostor scores
-  * Use all remaining images for training (440-216 = 224 samples). In this case,
-    the remaining images not all belong to different subjects that those on the
-    development set.
+   $ bob_dbmanage.py verafinger download
 
 
-The "Full" protocol
-===================
-
-The "Full" protocol is similar to protocol "B" in the sense it tries to match
-all existing images against all others (including itself), but uses all
-subjects and samples instead of a limited set. It was conceived to facilitate
-cross-folding tests on the database. So:
-
-  * 220 unique fingers
-  * 2 trials per finger, so 440 unique images
-  * Match all fingers against all images (even against itself)
-  * Total of 440x2 = 880 genuine scores and 440x438 = 192720 impostor scores
-  * No samples are available for training in this protocol
+Use the flag ``--force`` to overwrite any existing files. Use the flag
+``--missing`` to just download and uncompress metadata files missing from the
+current installation.
 
 
-.. Place your references here
+.. todolist::
 
-.. [Ton+12] *B. Ton*. **Vascular pattern of the finger: biometric of the future? Sensor design, data collection and performance verification**. Master's thesis, University of Twente, July 2012.
-
-.. _bob: http://www.idiap.ch/software/bob
-.. _vera fingervein database: https://www.idiap.ch/dataset/vera-fingervein
+.. include:: links.rst

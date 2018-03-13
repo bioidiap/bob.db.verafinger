@@ -8,12 +8,10 @@ import os
 import numpy
 
 from . import Database
+from .create import VERAFINGER_PATH
 
 import nose.tools
 from nose.plugins.skip import SkipTest
-
-# base directories where the VERA files sit
-DATABASE_PATH = "/idiap/project/vera/databases/VERA-fingervein"
 
 
 def sql3_available(test):
@@ -34,25 +32,28 @@ def sql3_available(test):
   return wrapper
 
 
-def db_available(test):
+def db_available(path):
   """Decorator for detecting if the database files are available"""
 
-  from bob.io.base.test_utils import datafile
-  from nose.plugins.skip import SkipTest
-  import functools
+  def decorator(test):
+    from bob.io.base.test_utils import datafile
+    from nose.plugins.skip import SkipTest
+    import functools
 
-  @functools.wraps(test)
-  def wrapper(*args, **kwargs):
-    if os.path.exists(DATABASE_PATH):
-      return test(*args, **kwargs)
-    else:
-      raise SkipTest("The database path (%s) is not available" % (DATABASE_PATH))
+    @functools.wraps(test)
+    def wrapper(*args, **kwargs):
+      if os.path.exists(path):
+        return test(*args, **kwargs)
+      else:
+        raise SkipTest("The database path (%s) is not available" % (path,))
 
-  return wrapper
+    return wrapper
+
+  return decorator
 
 
 @sql3_available
-def test_counts():
+def test_counts_bio():
 
   # test whether the correct number of clients is returned
   db = Database()
@@ -66,7 +67,7 @@ def test_counts():
   assert 'Fifty' in protocols
   assert 'B' in protocols
 
-  nose.tools.eq_(db.purposes(), ('train', 'enroll', 'probe'))
+  nose.tools.eq_(db.purposes(), ('train', 'enroll', 'probe', 'attack'))
   nose.tools.eq_(db.genders(), ('M', 'F'))
   nose.tools.eq_(db.sides(), ('L', 'R'))
 
@@ -88,32 +89,40 @@ def test_counts():
 
   # test database sizes
   nose.tools.eq_(len(db.objects(protocol='Nom', groups='train')), 0)
-  nose.tools.eq_(len(db.objects(protocol='Nom', groups='dev')), 440)
+  nose.tools.eq_(len(db.objects(protocol='Nom', groups='dev')), 660)
   nose.tools.eq_(len(db.objects(protocol='Nom', groups='dev',
     purposes='enroll')), 220)
   nose.tools.eq_(len(db.objects(protocol='Nom', groups='dev',
     purposes='probe')), 220)
+  nose.tools.eq_(len(db.objects(protocol='Nom', groups='dev',
+    purposes='attack')), 220)
 
   nose.tools.eq_(len(db.objects(protocol='Fifty', groups='train')), 240)
-  nose.tools.eq_(len(db.objects(protocol='Fifty', groups='dev')), 200)
+  nose.tools.eq_(len(db.objects(protocol='Fifty', groups='dev')), 300)
   nose.tools.eq_(len(db.objects(protocol='Fifty', groups='dev',
     purposes='enroll')), 100)
   nose.tools.eq_(len(db.objects(protocol='Fifty', groups='dev',
     purposes='probe')), 100)
+  nose.tools.eq_(len(db.objects(protocol='Fifty', groups='dev',
+    purposes='attack')), 100)
 
   nose.tools.eq_(len(db.objects(protocol='B', groups='train')), 224)
-  nose.tools.eq_(len(db.objects(protocol='B', groups='dev')), 216)
+  nose.tools.eq_(len(db.objects(protocol='B', groups='dev')), 432)
   nose.tools.eq_(len(db.objects(protocol='B', groups='dev',
     purposes='enroll')), 216)
   nose.tools.eq_(len(db.objects(protocol='B', groups='dev',
     purposes='probe')), 216)
+  nose.tools.eq_(len(db.objects(protocol='B', groups='dev',
+    purposes='attack')), 216)
 
   nose.tools.eq_(len(db.objects(protocol='Full', groups='train')), 0)
-  nose.tools.eq_(len(db.objects(protocol='Full', groups='dev')), 440)
+  nose.tools.eq_(len(db.objects(protocol='Full', groups='dev')), 880)
   nose.tools.eq_(len(db.objects(protocol='Full', groups='dev',
     purposes='enroll')), 440)
   nose.tools.eq_(len(db.objects(protocol='Full', groups='dev',
     purposes='probe')), 440)
+  nose.tools.eq_(len(db.objects(protocol='Full', groups='dev',
+    purposes='attack')), 440)
 
   # make sure that we can filter by model ids
   nose.tools.eq_(len(db.objects(protocol='Full', groups='dev',
@@ -123,19 +132,25 @@ def test_counts():
   nose.tools.eq_(len(db.objects(protocol='Full', groups='dev',
     purposes='probe', model_ids=model_ids[0])), 440)
 
+  # filtering by model ids on attacks, returns all with matching finger
+  nose.tools.eq_(len(db.objects(protocol='Full', groups='dev',
+    purposes='attack', model_ids=model_ids[0])), 2)
+
 
 @sql3_available
+@db_available(VERAFINGER_PATH)
 def test_driver_api():
 
   from bob.db.base.script.dbmanage import main
 
   nose.tools.eq_(main('verafinger dumplist --self-test'.split()), 0)
   nose.tools.eq_(main('verafinger dumplist --protocol=Full --group=dev --purpose=enroll --model=101_L_1 --self-test'.split()), 0)
+  nose.tools.eq_(main('verafinger dumplist --protocol=Full --group=dev --purpose=attack --model=101_L_1 --self-test'.split()), 0)
   nose.tools.eq_(main('verafinger checkfiles --self-test'.split()), 0)
 
 
 @sql3_available
-@db_available
+@db_available(VERAFINGER_PATH)
 def test_load():
 
   db = Database()
@@ -143,24 +158,16 @@ def test_load():
   for f in db.objects():
 
     # loads an image from the database
-    image = f.load(DATABASE_PATH)
+    image = f.load(VERAFINGER_PATH)
     assert isinstance(image, numpy.ndarray)
     nose.tools.eq_(len(image.shape), 2) #it is a 2D array
     nose.tools.eq_(image.dtype, numpy.uint8)
 
+    if f.size == 'cropped':
+      # no annotations available
+      continue
 
-@sql3_available
-@db_available
-def test_annotations():
-
-  db = Database()
-
-  for f in db.objects():
-
-    # loads an image from the database
-    image = f.load(DATABASE_PATH)
-
-    roi = f.roi()
+    roi = f.roi(VERAFINGER_PATH)
     assert isinstance(roi, numpy.ndarray)
     nose.tools.eq_(len(roi.shape), 2) #it is a 2D array
     nose.tools.eq_(roi.shape[1], 2) #two columns
