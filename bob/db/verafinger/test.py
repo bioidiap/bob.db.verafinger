@@ -61,11 +61,15 @@ def test_counts_bio():
   nose.tools.eq_(db.groups(), ('train', 'dev'))
 
   protocols = db.protocol_names()
-  nose.tools.eq_(len(protocols), 4)
+  nose.tools.eq_(len(protocols), 8)
   assert 'Nom' in protocols
   assert 'Full' in protocols
   assert 'Fifty' in protocols
   assert 'B' in protocols
+  assert 'Cropped-Nom' in protocols
+  assert 'Cropped-Full' in protocols
+  assert 'Cropped-Fifty' in protocols
+  assert 'Cropped-B' in protocols
 
   nose.tools.eq_(db.purposes(), ('train', 'enroll', 'probe', 'attack'))
   nose.tools.eq_(db.genders(), ('M', 'F'))
@@ -85,6 +89,18 @@ def test_counts_bio():
   nose.tools.eq_(len(model_ids), 216)
 
   model_ids = db.model_ids(protocol='Full')
+  nose.tools.eq_(len(model_ids), 440)
+
+  model_ids = db.model_ids(protocol='Cropped-Nom')
+  nose.tools.eq_(len(model_ids), 220)
+
+  model_ids = db.model_ids(protocol='Cropped-Fifty')
+  nose.tools.eq_(len(model_ids), 100)
+
+  model_ids = db.model_ids(protocol='Cropped-B')
+  nose.tools.eq_(len(model_ids), 216)
+
+  model_ids = db.model_ids(protocol='Cropped-Full')
   nose.tools.eq_(len(model_ids), 440)
 
   # test database sizes
@@ -124,6 +140,42 @@ def test_counts_bio():
   nose.tools.eq_(len(db.objects(protocol='Full', groups='dev',
     purposes='attack')), 440)
 
+  nose.tools.eq_(len(db.objects(protocol='Cropped-Nom', groups='train')), 0)
+  nose.tools.eq_(len(db.objects(protocol='Cropped-Nom', groups='dev')), 660)
+  nose.tools.eq_(len(db.objects(protocol='Cropped-Nom', groups='dev',
+    purposes='enroll')), 220)
+  nose.tools.eq_(len(db.objects(protocol='Cropped-Nom', groups='dev',
+    purposes='probe')), 220)
+  nose.tools.eq_(len(db.objects(protocol='Cropped-Nom', groups='dev',
+    purposes='attack')), 220)
+
+  nose.tools.eq_(len(db.objects(protocol='Cropped-Fifty', groups='train')), 240)
+  nose.tools.eq_(len(db.objects(protocol='Cropped-Fifty', groups='dev')), 300)
+  nose.tools.eq_(len(db.objects(protocol='Cropped-Fifty', groups='dev',
+    purposes='enroll')), 100)
+  nose.tools.eq_(len(db.objects(protocol='Cropped-Fifty', groups='dev',
+    purposes='probe')), 100)
+  nose.tools.eq_(len(db.objects(protocol='Cropped-Fifty', groups='dev',
+    purposes='attack')), 100)
+
+  nose.tools.eq_(len(db.objects(protocol='Cropped-B', groups='train')), 224)
+  nose.tools.eq_(len(db.objects(protocol='Cropped-B', groups='dev')), 432)
+  nose.tools.eq_(len(db.objects(protocol='Cropped-B', groups='dev',
+    purposes='enroll')), 216)
+  nose.tools.eq_(len(db.objects(protocol='Cropped-B', groups='dev',
+    purposes='probe')), 216)
+  nose.tools.eq_(len(db.objects(protocol='Cropped-B', groups='dev',
+    purposes='attack')), 216)
+
+  nose.tools.eq_(len(db.objects(protocol='Cropped-Full', groups='train')), 0)
+  nose.tools.eq_(len(db.objects(protocol='Cropped-Full', groups='dev')), 880)
+  nose.tools.eq_(len(db.objects(protocol='Cropped-Full', groups='dev',
+    purposes='enroll')), 440)
+  nose.tools.eq_(len(db.objects(protocol='Cropped-Full', groups='dev',
+    purposes='probe')), 440)
+  nose.tools.eq_(len(db.objects(protocol='Cropped-Full', groups='dev',
+    purposes='attack')), 440)
+
   # make sure that we can filter by model ids
   nose.tools.eq_(len(db.objects(protocol='Full', groups='dev',
     purposes='enroll', model_ids=model_ids[:10])), 10)
@@ -136,6 +188,17 @@ def test_counts_bio():
   nose.tools.eq_(len(db.objects(protocol='Full', groups='dev',
     purposes='attack', model_ids=model_ids[0])), 2)
 
+  nose.tools.eq_(len(db.objects(protocol='Cropped-Full', groups='dev',
+    purposes='enroll', model_ids=model_ids[:10])), 10)
+
+  # filtering by model ids on probes, returns all
+  nose.tools.eq_(len(db.objects(protocol='Cropped-Full', groups='dev',
+    purposes='probe', model_ids=model_ids[0])), 440)
+
+  # filtering by model ids on attacks, returns all with matching finger
+  nose.tools.eq_(len(db.objects(protocol='Cropped-Full', groups='dev',
+    purposes='attack', model_ids=model_ids[0])), 2)
+
 
 @sql3_available
 @db_available(VERAFINGER_PATH)
@@ -145,7 +208,9 @@ def test_driver_api():
 
   nose.tools.eq_(main('verafinger dumplist --self-test'.split()), 0)
   nose.tools.eq_(main('verafinger dumplist --protocol=Full --group=dev --purpose=enroll --model=101_L_1 --self-test'.split()), 0)
+  nose.tools.eq_(main('verafinger dumplist --protocol=Cropped-Full --group=dev --purpose=attack --model=101_L_1 --self-test'.split()), 0)
   nose.tools.eq_(main('verafinger dumplist --protocol=Full --group=dev --purpose=attack --model=101_L_1 --self-test'.split()), 0)
+  nose.tools.eq_(main('verafinger dumplist --protocol=Cropped-Full --group=dev --purpose=enroll --model=101_L_1 --self-test'.split()), 0)
   nose.tools.eq_(main('verafinger checkfiles --self-test'.split()), 0)
 
 
@@ -163,16 +228,16 @@ def test_load():
     nose.tools.eq_(len(image.shape), 2) #it is a 2D array
     nose.tools.eq_(image.dtype, numpy.uint8)
 
-    if f.size == 'cropped':
-      # no annotations available
-      continue
-
     roi = f.roi(VERAFINGER_PATH)
     assert isinstance(roi, numpy.ndarray)
     nose.tools.eq_(len(roi.shape), 2) #it is a 2D array
     nose.tools.eq_(roi.shape[1], 2) #two columns
     nose.tools.eq_(roi.dtype, numpy.uint16)
-    assert len(roi) > 10 #at least 10 points
+
+    if f.size == 'full':
+      assert len(roi) > 10 #at least 10 points
+    else:
+      assert len(roi) == 4
 
     # ensures all annotation points are within image boundary
     Y,X = image.shape

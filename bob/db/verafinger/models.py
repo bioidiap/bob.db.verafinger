@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # vim: set fileencoding=utf-8 :
 
 
@@ -198,8 +197,10 @@ class File(Base, bob.db.base.File):
     """
 
     directory = os.path.join(directory, 'annotations', 'roi')
-    return numpy.loadtxt(self.make_path(directory, '.txt'), dtype='uint16')
-
+    if self.size == 'full':
+      return numpy.loadtxt(self.make_path(directory, '.txt'), dtype='uint16')
+    else: #cropped, return the full image as RoI (150x565 pixels in yx)
+      return numpy.array([[149,0], [0,0], [0,564], [149,564]], dtype='uint16')
 
 
 class Protocol(Base):

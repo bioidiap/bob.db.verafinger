@@ -86,67 +86,73 @@ def add_bio_protocols(session, path, verbose):
   """
 
   protocol_dir = os.path.join(path, 'protocols', 'bio')
-  for name in os.listdir(protocol_dir):
-    protocol = Protocol(name)
-    session.add(protocol)
-    if verbose:
-      print("Created %s" % protocol)
 
-    # training data
-    train_filename = os.path.join(protocol_dir, name, 'train.txt')
-    subset = Subset(protocol, 'train', 'train')
-    session.add(subset)
-    if verbose:
-      print("Created %s" % subset)
-    with open(train_filename, 'rt') as f:
-      for row in f:
-        # we ignore the client identifier as it can be derived from the file
-        # name in the case of this dataset
-        filename_ref, _ = row.strip().split()
-        file_ = retrieve_file(session, 'full', 'bf', filename_ref)
-        subset.files.append(file_)
-        if verbose:
-          print("Added %s to %s" % (file_, subset))
+  for size in File.size_choices:
 
-    # enrollment data
-    models_filename = os.path.join(protocol_dir, name, 'models.txt')
-    subset = Subset(protocol, 'dev', 'enroll')
-    session.add(subset)
-    if verbose:
-      print("Created %s" % subset)
-    with open(models_filename, 'rt') as f:
-      for row in f:
-        # we ignore the model and client identifier as they can be derived from
-        # the file name in the case of this dataset
-        filename_ref, _, _ = row.strip().split()
-        file_ = retrieve_file(session, 'full', 'bf', filename_ref)
-        subset.files.append(file_)
-        if verbose:
-          print("Added %s to %s" % (file_, subset))
+    for name in os.listdir(protocol_dir):
+      if size == 'full':
+        protocol = Protocol(name)
+      else:
+        protocol = Protocol('Cropped-' + name)
+      session.add(protocol)
+      if verbose:
+        print("Created %s" % protocol)
 
-    # probing data, including presentation attacks
-    probes_filename = os.path.join(protocol_dir, name, 'probes.txt')
-    bf_subset = Subset(protocol, 'dev', 'probe')
-    session.add(bf_subset)
-    if verbose:
-      print("Created %s" % bf_subset)
-    pa_subset = Subset(protocol, 'dev', 'attack')
-    session.add(pa_subset)
-    if verbose:
-      print("Created %s" % pa_subset)
-    with open(probes_filename, 'rt') as f:
-      for row in f:
-        # we ignore the client identifier as it can be derived from the file
-        # name in the case of this dataset
-        filename_ref, _ = row.strip().split()
-        file_ = retrieve_file(session, 'full', 'bf', filename_ref)
-        bf_subset.files.append(file_)
-        if verbose:
-          print("Added %s to %s" % (file_, bf_subset))
-        file_ = retrieve_file(session, 'full', 'pa', filename_ref)
-        pa_subset.files.append(file_)
-        if verbose:
-          print("Added %s to %s" % (file_, pa_subset))
+      # training data
+      train_filename = os.path.join(protocol_dir, name, 'train.txt')
+      subset = Subset(protocol, 'train', 'train')
+      session.add(subset)
+      if verbose:
+        print("Created %s" % subset)
+      with open(train_filename, 'rt') as f:
+        for row in f:
+          # we ignore the client identifier as it can be derived from the file
+          # name in the case of this dataset
+          filename_ref, _ = row.strip().split()
+          file_ = retrieve_file(session, size, 'bf', filename_ref)
+          subset.files.append(file_)
+          if verbose:
+            print("Added %s to %s" % (file_, subset))
+
+      # enrollment data
+      models_filename = os.path.join(protocol_dir, name, 'models.txt')
+      subset = Subset(protocol, 'dev', 'enroll')
+      session.add(subset)
+      if verbose:
+        print("Created %s" % subset)
+      with open(models_filename, 'rt') as f:
+        for row in f:
+          # we ignore the model and client identifier as they can be derived from
+          # the file name in the case of this dataset
+          filename_ref, _, _ = row.strip().split()
+          file_ = retrieve_file(session, size, 'bf', filename_ref)
+          subset.files.append(file_)
+          if verbose:
+            print("Added %s to %s" % (file_, subset))
+
+      # probing data, including presentation attacks
+      probes_filename = os.path.join(protocol_dir, name, 'probes.txt')
+      bf_subset = Subset(protocol, 'dev', 'probe')
+      session.add(bf_subset)
+      if verbose:
+        print("Created %s" % bf_subset)
+      pa_subset = Subset(protocol, 'dev', 'attack')
+      session.add(pa_subset)
+      if verbose:
+        print("Created %s" % pa_subset)
+      with open(probes_filename, 'rt') as f:
+        for row in f:
+          # we ignore the client identifier as it can be derived from the file
+          # name in the case of this dataset
+          filename_ref, _ = row.strip().split()
+          file_ = retrieve_file(session, size, 'bf', filename_ref)
+          bf_subset.files.append(file_)
+          if verbose:
+            print("Added %s to %s" % (file_, bf_subset))
+          file_ = retrieve_file(session, size, 'pa', filename_ref)
+          pa_subset.files.append(file_)
+          if verbose:
+            print("Added %s to %s" % (file_, pa_subset))
 
 
 
