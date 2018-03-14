@@ -32,6 +32,70 @@ kbytes per sample.
 All *bonafide* samples corresponds to unaltered originals from the `VERA
 Fingervein Database`_.
 
+Images in the ``full`` folder are stored in PNG format, with a size of 250x665
+pixels (height, width).  Size of the files is around 80 kbytes per sample.
+
+Here are examples of presentation-attack (``pa``) samples from the ``full``
+folder inside the database, for subject ``029-M``:
+
+.. figure:: img/full/pa/029_L_1.png
+
+   Image from subject ``0029`` (male). This image corresponds to the first
+   trial for the left index finger.
+
+
+.. figure:: img/full/pa/029_L_2.png
+
+   Image from subject ``0029`` (male). This image corresponds to the second
+   trial for the left index finger.
+
+
+.. figure:: img/full/pa/029_R_1.png
+
+   Image from subject ``0029`` (male). This image corresponds to the first
+   trial for the right index finger.
+
+
+.. figure:: img/full/pa/029_R_2.png
+
+   Image from subject ``0029`` (male). This image corresponds to the second
+   trial for the right index finger.
+
+
+Images in the ``cropped`` folder are stored in PNG format, with a size of
+150x565 pixels (height, width).  Size of the files is around 40 kbytes per
+sample.
+
+Here are examples of presentation-attack (``pa``) samples from the ``cropped``
+folder inside the database, for subject ``029-M``:
+
+.. figure:: img/cropped/pa/029_L_1.png
+
+   Image from subject ``0029`` (male). This image corresponds to the first
+   trial for the left index finger. This version contains only the pre-cropped
+   region-of-interest.
+
+
+.. figure:: img/cropped/pa/029_L_2.png
+
+   Image from subject ``0029`` (male). This image corresponds to the second
+   trial for the left index finger. This version contains only the pre-cropped
+   region-of-interest.
+
+
+.. figure:: img/cropped/pa/029_R_1.png
+
+   Image from subject ``0029`` (male). This image corresponds to the first
+   trial for the right index finger. This version contains only the pre-cropped
+   region-of-interest.
+
+
+.. figure:: img/cropped/pa/029_R_2.png
+
+   Image from subject ``0029`` (male). This image corresponds to the second
+   trial for the right index finger. This version contains only the pre-cropped
+   region-of-interest.
+
 
 Protocols
 ---------
@@ -52,18 +116,17 @@ analysis of the vulnerability of established biometric recognition baselines
 when exposed to presentation attacks. For such purposes, the following sets of
 protocols exist in this package:
 
-  * "Nom"
-  * "Fifty"
-  * "B"
-  * "Full"
+  * "Nom" and "Cropped-Nom"
+  * "Fifty" and "Cropped-Fifty"
+  * "B" and "Cropped-B"
+  * "Full" and "Cropped-Full"
 
 These protocols are matches for the biometric recognition protocols described
 in :ref:`bob.db.verafinger.bio`, but with probes replaced by presentation
-attacks. Data for presentation attacks come from the subfolder of the dataset
-named ``pa``. Data for *bona fide* presentations come from the ``bf`` folder as
-for biometric recognition. Vulnerability analysis can, currently, only be
-executed using ``full`` images though it is hypothetically possible to extend
-this package to accomodate for ``cropped``-image-based tasks.
+attacks **only**. Data for presentation attacks come from the subfolder of the
+dataset named ``pa``. Data for *bona fide* presentations come from the ``bf``
+folder as for biometric recognition. Vulnerability analysis can, currently,
+only be executed using either ``full`` or ``cropped`` images.
 
 This setup allows for testing the vulnerability of biometric systems.
 Notice that, unlike the biometric recognition protocols, presentation attack

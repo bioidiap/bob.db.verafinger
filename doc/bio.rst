@@ -35,9 +35,10 @@ Samples are stored as follow with the following filename convention:
 ``<size>`` represents one of two options ``full`` or ``cropped``. The images in
 the ``full`` directory contain the full image produced by the sensor. The
 images in the ``cropped`` directory represent pre-cropped region-of-interests
-(RoI). Currently, all biometric recongition protocols only concern images in
-the ``full`` folder though it is hypothetically possible to extend this package
-to accomodate for ``cropped``-image-based tasks.
+(RoI) which can be directly used for feature extraction without
+region-of-interest detection. We provide both verification and
+presentation-attack detection protocols for ``full`` or ``cropped`` versions of
+the images.
 
 The ``<source>`` field may one of ``bf`` (*bona fide*) or ``pa``
 (presentation attack) and represent the genuiness of the image. Naturally,
@@ -49,33 +50,69 @@ set to either "R" or "L" ("Right" or "Left"). The ``<trial>`` corresponds to
 either the first (1) or the second (2) time the subject interacted with the
 device.
 
-Images are stored in PNG format, with a size of 250x665 pixels (height, width).
-Size of the files is around 80 kbytes per sample.
+Images in the ``full`` folder are stored in PNG format, with a size of 250x665
+pixels (height, width).  Size of the files is around 80 kbytes per sample.
 
-Here is an example of samples from the database, for subject ``029-M``:
+Here are examples of *bona fide* (``bf``) samples from the ``full`` folder
+inside the database, for subject ``029-M``:
 
-.. figure:: img/029_L_1.png
+.. figure:: img/full/bf/029_L_1.png
 
    Image from subject ``0029`` (male). This image corresponds to the first
    trial for the left index finger.
 
 
-.. figure:: img/029_L_2.png
+.. figure:: img/full/bf/029_L_2.png
 
    Image from subject ``0029`` (male). This image corresponds to the second
    trial for the left index finger.
 
 
-.. figure:: img/029_R_1.png
+.. figure:: img/full/bf/029_R_1.png
 
    Image from subject ``0029`` (male). This image corresponds to the first
    trial for the right index finger.
 
 
-.. figure:: img/029_R_2.png
+.. figure:: img/full/bf/029_R_2.png
 
    Image from subject ``0029`` (male). This image corresponds to the second
    trial for the right index finger.
+
+
+Images in the ``cropped`` folder are stored in PNG format, with a size of
+150x565 pixels (height, width).  Size of the files is around 40 kbytes per
+sample.
+
+Here are examples of *bona fide* (``bf``) samples from the ``cropped`` folder
+inside the database, for subject ``029-M``:
+
+.. figure:: img/cropped/bf/029_L_1.png
+
+   Image from subject ``0029`` (male). This image corresponds to the first
+   trial for the left index finger. This version contains only the pre-cropped
+   region-of-interest.
+
+
+.. figure:: img/cropped/bf/029_L_2.png
+
+   Image from subject ``0029`` (male). This image corresponds to the second
+   trial for the left index finger. This version contains only the pre-cropped
+   region-of-interest.
+
+
+.. figure:: img/cropped/bf/029_R_1.png
+
+   Image from subject ``0029`` (male). This image corresponds to the first
+   trial for the right index finger. This version contains only the pre-cropped
+   region-of-interest.
+
+
+.. figure:: img/cropped/bf/029_R_2.png
+
+   Image from subject ``0029`` (male). This image corresponds to the second
+   trial for the right index finger. This version contains only the pre-cropped
+   region-of-interest.
 
 
 Acquisition Protocol
@@ -108,7 +145,9 @@ Protocols
 ---------
 
 This package comes preset with 4 distinct evaluation protocols on the `VERA
-fingervein database`_. They are detailed next.
+fingervein database`_. Each protocol contains a variant with a prefixed
+``Cropped-``, indicating they use images from the ``cropped`` folder instead of
+the ``full`` folder. These 4 protocols are detailed next.
 
 
 The "Nom" protocol
@@ -126,6 +165,11 @@ happens exhaustively. In summary:
  * Total of 220 genuine scores and 220x219 = 48180 impostor scores
  * No images for training
 
+.. note::
+
+   To access the version of the protocol using images in the ``cropped``
+   folder, use the protocol name "Cropped-Nom".
+
 
 The "Fifty" protocol
 ====================
@@ -141,6 +185,11 @@ first 50 subjects in the dataset (numbered 1 until 59). In summary:
  * Use all remaining images for training (440-200 = 240 images). In this case,
    the remaining images all belong to different subjects that those on the
    development set.
+
+.. note::
+
+   To access the version of the protocol using images in the ``cropped``
+   folder, use the protocol name "Cropped-Fifty".
 
 
 The "B" protocol
@@ -166,6 +215,11 @@ Then, protocol "B" was setup in this way:
     the remaining images not all belong to different subjects that those on the
     development set.
 
+.. note::
+
+   To access the version of the protocol using images in the ``cropped``
+   folder, use the protocol name "Cropped-B".
+
 
 The "Full" protocol
 ===================
@@ -180,6 +234,11 @@ cross-folding tests on the database. So:
   * Match all fingers against all images (even against itself)
   * Total of 440x2 = 880 genuine scores and 440x438 = 192720 impostor scores
   * No samples are available for training in this protocol
+
+.. note::
+
+   To access the version of the protocol using images in the ``cropped``
+   folder, use the protocol name "Cropped-Full".
 
 
 .. include:: links.rst
