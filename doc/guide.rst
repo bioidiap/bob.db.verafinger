@@ -17,17 +17,18 @@ guide, we assume you have downloaded and uncompressed the dataset into a
 the command examples below to the actual location of files in your hard drive.
 
 Once you uncompressed the files in the `VERA Fingervein Database`_, you should
-be able to see at least 5 entries among directories and files:
+be able to see at least 6 entries among directories and files:
 
 .. code-block:: sh
 
    $ ls -l /path/to/verafinger
    total 4
-   drwxr-xr-x 5 user staff  170 Mar 10 13:56 cropped/
-   drwxr-xr-x 4 user staff  136 Mar 10 13:57 full/
-   -rw-r--r-- 1 user staff 1004 Mar 10 14:03 metadata.csv
-   drwxr-xr-x 6 user staff  204 Mar 10 14:32 annotations/
-   drwxr-xr-x 3 user staff  102 Mar 12 17:29 protocols/
+   drwxr-xr-x 5 user staff   170 Mar 10 13:56 cropped/
+   drwxr-xr-x 4 user staff   136 Mar 10 13:57 full/
+   -rw-r--r-- 1 user staff  1004 Mar 10 14:03 metadata.csv
+   drwxr-xr-x 6 user staff   204 Mar 10 14:32 annotations/
+   drwxr-xr-x 3 user staff   102 Mar 12 17:29 protocols/
+   -rw-r--r-- 1 andre staff 3461 Apr  9 14:41 README.rst
 
 
 Checking Installation
