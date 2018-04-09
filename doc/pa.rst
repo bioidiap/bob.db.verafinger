@@ -156,9 +156,12 @@ Protocol "full"
 In this protocol, the full image as captured from the sensor is available to
 the user. Here is a summary:
 
-* Training set: 30 subjects (identifiers from 1 to 31 inclusive)
-* Development set: 30 subjects (identifiers from 32 to 72 inclusive)
-* Test set: 50 subjects (identifiers from 73 to 124 inclusive)
+* Training set: 30 subjects (identifiers from 1 to 31 inclusive). There are 240
+  samples on this set.
+* Development set: 30 subjects (identifiers from 32 to 72 inclusive). There are
+  240 samples on this set.
+* Test set: 50 subjects (identifiers from 73 to 124 inclusive). There are 400
+  samples on this set.
 
 
 Protocol "cropped"
