@@ -81,8 +81,10 @@ inside the database, for subject ``029-M``:
 
 
 Images in the ``cropped`` folder are stored in PNG format, with a size of
-150x565 pixels (height, width).  Size of the files is around 40 kbytes per
-sample.
+150x565 pixels (height, width).  Because of the simplified sensor design and
+fixed finger positioning, cropping was performed by simply removing 50 pixels
+from each border of the original raw image. Size of the files is around 40
+kbytes per sample.
 
 Here are examples of *bona fide* (``bf``) samples from the ``cropped`` folder
 inside the database, for subject ``029-M``:
