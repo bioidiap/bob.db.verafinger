@@ -5,8 +5,10 @@
 """
 
 from .query import Database
-from .pad import PADDatabase
 from .models import Client, Finger, File, Protocol, Subset
+
+from .pad import PADDatabase
+from .models import PADProtocol, PADSubset
 
 
 def get_config():
