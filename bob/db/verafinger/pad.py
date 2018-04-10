@@ -30,6 +30,12 @@ class PADDatabase(bob.db.base.SQLiteDatabase):
     return tuple([k.name for k in self.query(PADProtocol).order_by(PADProtocol.name)])
 
 
+  def purposes(self):
+    """Returns a list of all supported purposes"""
+
+    return PADSubset.purpose_choices
+
+
   def groups(self):
     """Returns a list of all supported groups"""
 
@@ -66,8 +72,8 @@ class PADDatabase(bob.db.base.SQLiteDatabase):
     return File.session_choices
 
 
-  def objects(self, protocol=None, groups=None, genders=None, sides=None,
-      sizes=None, sources=None, sessions=None):
+  def objects(self, protocol=None, groups=None, purposes=None, genders=None,
+      sides=None, sizes=None, sources=None, sessions=None):
     """Returns objects filtered by criteria
 
 
@@ -78,6 +84,9 @@ class PADDatabase(bob.db.base.SQLiteDatabase):
 
       groups (:py:class:`str`, :py:class:`list`, optional): One or more of the
         supported groups. If not set, returns data from all groups
+
+      purposes (:py:class:`str`, :py:class:`list`, optional): One or more of
+        the supported purposes. If not set, returns data for all purposes
 
       genders (:py:class:`str`, :py:class:`list`, optional): If set, limit
         output using the provided gender identifiers
@@ -113,6 +122,10 @@ class PADDatabase(bob.db.base.SQLiteDatabase):
       groups = self.check_parameters_for_validity(
           groups, "group", valid_groups)
 
+    if purposes:
+      valid_purposes = self.purposes()
+      purposes = self.check_parameters_for_validity(purposes, "purpose",
+                                                    valid_purposes)
     if genders:
       valid_genders = self.genders()
       genders = self.check_parameters_for_validity(genders, "genders",
@@ -141,7 +154,7 @@ class PADDatabase(bob.db.base.SQLiteDatabase):
     joins = []
     filters = []
 
-    if protocols or groups:
+    if protocols or groups or purposes:
 
       subquery = self.query(PADSubset)
       subfilters = []
@@ -152,6 +165,8 @@ class PADDatabase(bob.db.base.SQLiteDatabase):
 
       if groups:
         subfilters.append(PADSubset.group.in_(groups))
+      if purposes:
+        subfilters.append(PADSubset.purpose.in_(purposes))
 
       padsubsets = subquery.filter(*subfilters)
 

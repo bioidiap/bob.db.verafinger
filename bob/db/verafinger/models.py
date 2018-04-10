@@ -293,15 +293,20 @@ class PADSubset(Base):
   group_choices = ('train', 'dev', 'eval')
   group = Column(Enum(*group_choices))
 
+  purpose_choices = ('real', 'attack')
+  purpose = Column(Enum(*purpose_choices))
+
   files = relationship("File",
       secondary=padsubset_file_association,
       backref=backref("padsubsets"))
 
 
-  def __init__(self, protocol, group):
+  def __init__(self, protocol, group, purpose):
     self.protocol = protocol
     self.group = group
+    self.purpose = purpose
 
 
   def __repr__(self):
-    return "PADSubset(%s, '%s')" % (self.protocol, self.group)
+    return "PADSubset(%s, '%s', '%s')" % (self.protocol, self.group,
+        self.purpose)

@@ -170,18 +170,27 @@ def add_pad_protocols(session, path, verbose):
 
     for k in PADSubset.group_choices:
       filelist = os.path.join(protocol_dir, name, k + '.txt')
-      subset = PADSubset(protocol, k)
-      session.add(subset)
+      bf_subset = PADSubset(protocol, k, 'real')
+      session.add(bf_subset)
       if verbose:
-        print("Created %s" % subset)
+        print("Created %s" % bf_subset)
+      pa_subset = PADSubset(protocol, k, 'attack')
+      session.add(pa_subset)
+      if verbose:
+        print("Created %s" % pa_subset)
       with open(filelist, 'rt') as f:
         for row in f:
           size, source, client_name, sample_name = row.strip().split('/')
           filename_ref = '/'.join((client_name, sample_name))
           file_ = retrieve_file(session, size, source, filename_ref)
-          subset.files.append(file_)
-          if verbose:
-            print("Added %s to %s" % (file_, subset))
+          if source == 'bf':
+            bf_subset.files.append(file_)
+            if verbose:
+              print("Added %s to %s" % (file_, bf_subset))
+          else:
+            pa_subset.files.append(file_)
+            if verbose:
+              print("Added %s to %s" % (file_, pa_subset))
 
 
 def create_tables(args):

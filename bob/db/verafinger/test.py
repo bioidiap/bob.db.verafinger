@@ -327,8 +327,20 @@ def test_counts_pad():
 
     # test database sizes
     nose.tools.eq_(len(db.objects(protocol=name, groups='train')), 240)
+    nose.tools.eq_(len(db.objects(protocol=name, groups='train',
+      purposes='real')), 120)
+    nose.tools.eq_(len(db.objects(protocol=name, groups='train',
+      purposes='attack')), 120)
     nose.tools.eq_(len(db.objects(protocol=name, groups='dev')), 240)
+    nose.tools.eq_(len(db.objects(protocol=name, groups='dev',
+      purposes='real')), 120)
+    nose.tools.eq_(len(db.objects(protocol=name, groups='dev',
+      purposes='attack')), 120)
     nose.tools.eq_(len(db.objects(protocol=name, groups='eval')), 400)
+    nose.tools.eq_(len(db.objects(protocol=name, groups='eval',
+      purposes='real')), 200)
+    nose.tools.eq_(len(db.objects(protocol=name, groups='eval',
+      purposes='attack')), 200)
 
     train_clients, train_fingers = _fingers_in_group(name, 'train')
     dev_clients, dev_fingers = _fingers_in_group(name, 'dev')
