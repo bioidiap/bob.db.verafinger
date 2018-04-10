@@ -7,7 +7,7 @@
 import os
 import numpy
 
-from . import Database
+from . import Database, PADDatabase
 from .create import VERAFINGER_PATH
 
 import nose.tools
@@ -254,3 +254,100 @@ def test_model_id_to_finger_name_conversion():
   for f in db.objects():
 
     assert len(db.finger_name_from_model_id(f.model_id)) == 5
+
+
+@sql3_available
+@db_available(VERAFINGER_PATH)
+def test_load_pad():
+
+  db = PADDatabase()
+
+  for f in db.objects():
+
+    # loads an image from the database
+    image = f.load(VERAFINGER_PATH)
+    assert isinstance(image, numpy.ndarray)
+    nose.tools.eq_(len(image.shape), 2) #it is a 2D array
+    nose.tools.eq_(image.dtype, numpy.uint8)
+
+    roi = f.roi(VERAFINGER_PATH)
+    assert isinstance(roi, numpy.ndarray)
+    nose.tools.eq_(len(roi.shape), 2) #it is a 2D array
+    nose.tools.eq_(roi.shape[1], 2) #two columns
+    nose.tools.eq_(roi.dtype, numpy.uint16)
+
+    if f.size == 'full':
+      assert len(roi) > 10 #at least 10 points
+    else:
+      assert len(roi) == 4
+
+    # ensures all annotation points are within image boundary
+    Y,X = image.shape
+    for y,x in roi:
+      assert y < Y, 'Annotation (%d, %d) for %s surpasses the image size (%d, %d)' % (y, x, f.path, Y, X)
+      assert x < X, 'Annotation (%d, %d) for %s surpasses the image size (%d, %d)' % (y, x, f.path, Y, X)
+
+
+@sql3_available
+@db_available(VERAFINGER_PATH)
+def test_driver_api_pad():
+
+  from bob.db.base.script.dbmanage import main
+
+  nose.tools.eq_(main('verafinger dumppadlist --self-test'.split()), 0)
+  nose.tools.eq_(main('verafinger dumppadlist --protocol=full --group=dev --self-test'.split()), 0)
+  nose.tools.eq_(main('verafinger dumppadlist --protocol=cropped --group=eval --self-test'.split()), 0)
+
+
+@sql3_available
+def test_counts_pad():
+
+  # test whether the correct number of clients is returned
+  db = PADDatabase()
+
+  nose.tools.eq_(db.groups(), ('train', 'dev', 'eval'))
+
+  protocols = db.protocol_names()
+  nose.tools.eq_(len(protocols), 2)
+  assert 'full' in protocols
+  assert 'cropped' in protocols
+
+  nose.tools.eq_(db.genders(), ('M', 'F'))
+  nose.tools.eq_(db.sides(), ('L', 'R'))
+
+  def _fingers_in_group(protocol, group):
+    '''Returns a unique list of clients/fingers in the group as a set'''
+
+    files = db.objects(protocol=protocol, groups=group)
+    return set([k.finger.client.id for k in files]), \
+        set([k.finger.unique_name for k in files])
+
+  def _check_proto(name):
+    '''Runs a full check on a given protocol'''
+
+    # test database sizes
+    nose.tools.eq_(len(db.objects(protocol=name, groups='train')), 240)
+    nose.tools.eq_(len(db.objects(protocol=name, groups='dev')), 240)
+    nose.tools.eq_(len(db.objects(protocol=name, groups='eval')), 400)
+
+    train_clients, train_fingers = _fingers_in_group(name, 'train')
+    dev_clients, dev_fingers = _fingers_in_group(name, 'dev')
+    eval_clients, eval_fingers = _fingers_in_group(name, 'eval')
+
+    # Test individual counts on clients and fingers
+    nose.tools.eq_(len(train_clients), 30)
+    nose.tools.eq_(len(train_fingers), 60)
+    nose.tools.eq_(len(dev_clients), 30)
+    nose.tools.eq_(len(dev_fingers), 60)
+    nose.tools.eq_(len(eval_clients), 50)
+    nose.tools.eq_(len(eval_fingers), 100)
+
+    nose.tools.eq_(train_clients.intersection(dev_clients), set())
+    nose.tools.eq_(train_clients.intersection(eval_clients), set())
+    nose.tools.eq_(dev_clients.intersection(eval_clients), set())
+    nose.tools.eq_(train_fingers.intersection(dev_fingers), set())
+    nose.tools.eq_(train_fingers.intersection(eval_fingers), set())
+    nose.tools.eq_(dev_fingers.intersection(eval_clients), set())
+
+  _check_proto('full')
+  _check_proto('cropped')

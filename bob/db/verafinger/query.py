@@ -1,9 +1,9 @@
 #!/usr/bin/env python
-# vim: set fileencoding=utf-8 :
+# -*- coding: utf-8 -*-
 
-"""Dataset interface allowing the user to query the VERA database"""
+'''Implementation of a simple database interface for querying PAD data'''
 
-import six
+
 from .models import *
 from .driver import Interface
 from sqlalchemy import and_, not_
@@ -22,8 +22,8 @@ class Database(bob.db.base.SQLiteDatabase):
 
 
   def __init__(self, original_directory=None, original_extension=None):
-    super(Database, self).__init__(SQLITE_FILE, File,
-                                   original_directory, original_extension)
+    super(Database, self).__init__(SQLITE_FILE, File, original_directory,
+        original_extension)
 
 
   def protocol_names(self):
@@ -228,12 +228,13 @@ class Database(bob.db.base.SQLiteDatabase):
 
     if sources:
       valid_sources = self.sources()
-      sources = self.check_parameters_for_validity(sources, "sources", valid_sources)
+      sources = self.check_parameters_for_validity(sources, "sources",
+          valid_sources)
 
     if sessions:
       valid_sessions = self.sessions()
       sessions = self.check_parameters_for_validity(sessions, "sessions",
-                                                    valid_sessions)
+          valid_sessions)
 
     retval = self.query(File)
 

@@ -204,7 +204,7 @@ class File(Base, bob.db.base.File):
 
 
 class Protocol(Base):
-  """VERA protocols"""
+  """VERA biometric recognition protocols"""
 
   __tablename__ = 'protocol'
 
@@ -255,3 +255,53 @@ class Subset(Base):
 
   def __repr__(self):
     return "Subset(%s, '%s', '%s')" % (self.protocol, self.group, self.purpose)
+
+
+class PADProtocol(Base):
+  """VERA presentation attack detection protocols"""
+
+  __tablename__ = 'padprotocol'
+
+  id = Column(Integer, primary_key=True)
+
+  # Name of the protocol
+  name = Column(String(10), unique=True)
+
+
+  def __init__(self, name):
+    self.name = name
+
+  def __repr__(self):
+    return "PADProtocol('%s')" % self.name
+
+
+padsubset_file_association = Table('padsubset_file_association', Base.metadata,
+  Column('file_id', Integer, ForeignKey('file.id')),
+  Column('padsubset_id', Integer, ForeignKey('padsubset.id')))
+
+
+class PADSubset(Base):
+  """VERA protocol subsets for presentation attack detection"""
+
+  __tablename__ = 'padsubset'
+
+  id = Column(Integer, primary_key=True)
+
+  protocol_id = Column(Integer, ForeignKey('padprotocol.id'))
+  protocol = relationship("PADProtocol", backref=backref("padsubsets"))
+
+  group_choices = ('train', 'dev', 'eval')
+  group = Column(Enum(*group_choices))
+
+  files = relationship("File",
+      secondary=padsubset_file_association,
+      backref=backref("padsubsets"))
+
+
+  def __init__(self, protocol, group):
+    self.protocol = protocol
+    self.group = group
+
+
+  def __repr__(self):
+    return "PADSubset(%s, '%s')" % (self.protocol, self.group)

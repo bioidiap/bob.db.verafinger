@@ -34,6 +34,28 @@ def dumplist(args):
   return 0
 
 
+def dumppadlist(args):
+  """Dumps lists of files based on your criteria"""
+
+  from .pad import PADDatabase
+  db = PADDatabase()
+
+  r = db.objects(
+      protocol=args.protocol,
+      groups=args.group,
+      )
+
+  output = sys.stdout
+  if args.selftest:
+    from bob.db.base.utils import null
+    output = null()
+
+  for f in r:
+    output.write('%s\n' % f.make_path(args.directory, args.extension))
+
+  return 0
+
+
 def checkfiles(args):
   """Checks existence of files based on your criteria"""
 
@@ -102,8 +124,10 @@ class Interface(BaseInterface):
 
     # example: get the "dumplist" action from a submodule
     from .query import Database
+    from .pad import PADDatabase
     import argparse
     db = Database()
+    paddb = PADDatabase()
 
     from .create import VERAFINGER_PATH
 
@@ -114,9 +138,16 @@ class Interface(BaseInterface):
     parser.add_argument('-u', '--purpose', help="if given, this value will limit the output files to those designed for the given purposes", choices=db.purposes() if db.is_valid() else ())
     parser.add_argument('-m', '--models', type=str, help="if given, limits the dump to a particular model")
     parser.add_argument('-g', '--group', help="if given, this value will limit the output files to those belonging to a particular protocolar group", choices=db.groups() if db.is_valid() else ())
-    parser.add_argument('-c', '--class', dest='sclass', help="if given, this value will limit the output files to those belonging to the given classes", choices=('client', 'impostor'))
     parser.add_argument('--self-test', dest="selftest", action='store_true', help=argparse.SUPPRESS)
     parser.set_defaults(func=dumplist) #action
+
+    parser = subparsers.add_parser('dumppadlist', help=dumplist.__doc__)
+    parser.add_argument('-d', '--directory', default=VERAFINGER_PATH, help="if given, this path will be prepended to every entry returned [default: %(default)s)]")
+    parser.add_argument('-e', '--extension', default='', help="if given, this extension will be appended to every entry returned")
+    parser.add_argument('-p', '--protocol', help="if given, limits the dump to a particular subset of the data that corresponds to the given protocol", choices=paddb.protocol_names() if paddb.is_valid() else ())
+    parser.add_argument('-g', '--group', help="if given, this value will limit the output files to those belonging to a particular protocolar group", choices=paddb.groups() if paddb.is_valid() else ())
+    parser.add_argument('--self-test', dest="selftest", action='store_true', help=argparse.SUPPRESS)
+    parser.set_defaults(func=dumppadlist) #action
 
     # the "checkfiles" action
     parser = subparsers.add_parser('checkfiles', help=checkfiles.__doc__)

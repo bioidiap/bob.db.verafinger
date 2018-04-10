@@ -13,7 +13,7 @@ from .models import *
 
 
 VERAFINGER_PATH = os.environ.get('VERAFINGER_PATH',
-    '/idiap/project/vera/databases/new/fingervein')
+    '/path/to/root/of/vera/fingervein')
 
 
 def add_clients(session, path, verbose):
@@ -155,6 +155,34 @@ def add_bio_protocols(session, path, verbose):
             print("Added %s to %s" % (file_, pa_subset))
 
 
+def add_pad_protocols(session, path, verbose):
+  """Creates presentation attack detection protocols entries at the database
+  """
+
+  protocol_dir = os.path.join(path, 'protocols', 'pad')
+
+  # there are 2 protocols "full" and "cropped"
+  for name in os.listdir(protocol_dir):
+    protocol = PADProtocol(name)
+    session.add(protocol)
+    if verbose:
+      print("Created %s" % protocol)
+
+    for k in PADSubset.group_choices:
+      filelist = os.path.join(protocol_dir, name, k + '.txt')
+      subset = PADSubset(protocol, k)
+      session.add(subset)
+      if verbose:
+        print("Created %s" % subset)
+      with open(filelist, 'rt') as f:
+        for row in f:
+          size, source, client_name, sample_name = row.strip().split('/')
+          filename_ref = '/'.join((client_name, sample_name))
+          file_ = retrieve_file(session, size, source, filename_ref)
+          subset.files.append(file_)
+          if verbose:
+            print("Added %s to %s" % (file_, subset))
+
 
 def create_tables(args):
   """Creates all necessary tables (only to be used at the first time)"""
@@ -188,6 +216,7 @@ def create(args):
   add_clients(s, args.directory, args.verbose)
   add_fingers(s, args.verbose)
   add_files(s, args.verbose)
+  add_pad_protocols(s, args.directory, args.verbose)
   add_bio_protocols(s, args.directory, args.verbose)
   s.commit()
   s.close()
