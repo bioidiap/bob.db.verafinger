@@ -96,6 +96,4 @@ Use the flag ``--force`` to overwrite any existing files. Use the flag
 current installation.
 
 
-.. todolist::
-
 .. include:: links.rst
