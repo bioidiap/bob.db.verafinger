@@ -2,7 +2,7 @@
 .. Tue 16 Aug 17:34:26 CEST 2016
 
 
-.. image:: https://img.shields.io/badge/docs-available-orage.svg
+.. image:: https://img.shields.io/badge/docs-available-orange.svg
    :target: https://www.idiap.ch/software/bob/docs/bob/bob.db.verafinger/master/index.html
 .. image:: https://gitlab.idiap.ch/bob/bob.db.verafinger/badges/master/pipeline.svg
    :target: https://gitlab.idiap.ch/bob/bob.db.verafinger/commits/master
